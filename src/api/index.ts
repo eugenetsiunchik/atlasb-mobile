@@ -1,0 +1,2 @@
+export { fetchJson } from './http';
+
