@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native/React/Base/RCTEventDispatcherProtocol.h b/node_modules/react-native/React/Base/RCTEventDispatcherProtocol.h
+index 3bbbba1..bf40f3b 100644
+--- a/node_modules/react-native/React/Base/RCTEventDispatcherProtocol.h
++++ b/node_modules/react-native/React/Base/RCTEventDispatcherProtocol.h
+@@ -7,6 +7,7 @@
+ 
+ #import <UIKit/UIKit.h>
+ 
++#import <React/RCTDefines.h>
+ #import <React/RCTBridge.h>
+ #import <React/RCTBridgeProxy.h>
+ 

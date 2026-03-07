@@ -1,0 +1,13 @@
+diff --git a/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m b/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m
+index a3695b6..175f4b5 100644
+--- a/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m
++++ b/node_modules/@react-native-firebase/storage/ios/RNFBStorage/RNFBStorageModule.m
+@@ -16,6 +16,8 @@
+  */
+ 
+ #import <Firebase/Firebase.h>
++#import "../../../../react-native/React/Base/RCTDefines.h"
++#import <React/RCTBridgeModule.h>
+ #import <React/RCTUtils.h>
+ 
+ #import "RNFBRCTEventEmitter.h"

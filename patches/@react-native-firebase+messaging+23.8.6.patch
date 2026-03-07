@@ -1,0 +1,72 @@
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.h b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.h
+index 708ff24..38c4cf0 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.h
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.h
+@@ -16,6 +16,7 @@
+  */
+ 
+ #import <Foundation/Foundation.h>
++#import <RNFBApp/RNFBAppModule.h>
+ #import <React/RCTBridgeModule.h>
+ #import <UIKit/UIKit.h>
+ 
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.m
+index 9c3651d..4e8224d 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.m
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+AppDelegate.m
+@@ -21,6 +21,7 @@
+ 
+ #import <RNFBApp/RNFBRCTEventEmitter.h>
+ #import <RNFBApp/RNFBSharedUtils.h>
++#import <RNFBApp/RCTConvert+FIRApp.h>
+ #import <React/RCTConvert.h>
+ 
+ #import "RNFBMessaging+AppDelegate.h"
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
+index dcc8e84..1d426e1 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
+@@ -15,8 +15,12 @@
+  *
+  */
+ 
++#import "../../../../react-native/React/Base/RCTDefines.h"
+ #import <Firebase/Firebase.h>
++#import <RNFBApp/RNFBAppModule.h>
++#import <RNFBApp/RCTConvert+FIRApp.h>
+ #import <RNFBApp/RNFBSharedUtils.h>
++#import <React/RCTBridgeModule.h>
+ #import <React/RCTConvert.h>
+ #import <React/RCTUtils.h>
+ 
+@@ -220,7 +224,7 @@ - (NSDictionary *)constantsToExport {
+ }
+ 
+ RCT_EXPORT_METHOD(completeNotificationProcessing) {
+-  dispatch_get_main_queue(), ^{
++  dispatch_async(dispatch_get_main_queue(), ^{
+     RNFBMessagingAppDelegate *appDelegate = [RNFBMessagingAppDelegate sharedInstance];
+     if (appDelegate.completionHandler) {
+       appDelegate.completionHandler(UIBackgroundFetchResultNewData);
+@@ -230,7 +234,7 @@ - (NSDictionary *)constantsToExport {
+       [[UIApplication sharedApplication] endBackgroundTask:appDelegate.backgroundTaskId];
+       appDelegate.backgroundTaskId = UIBackgroundTaskInvalid;
+     }
+-  };
++  });
+ }
+ 
+ RCT_EXPORT_METHOD(requestPermission
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
+index c4c0e74..6207148 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
+@@ -16,6 +16,7 @@
+ 
+ #import <Firebase/Firebase.h>
+ #import <RNFBApp/RNFBJSON.h>
+ #import <RNFBApp/RNFBRCTEventEmitter.h>
++#import <RNFBApp/RCTConvert+FIRApp.h>
+ #import <React/RCTConvert.h>
+ #import <React/RCTRootView.h>
+ 
