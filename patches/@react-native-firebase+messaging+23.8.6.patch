@@ -22,6 +22,18 @@ index 9c3651d..4e8224d 100644
  #import <React/RCTConvert.h>
  
  #import "RNFBMessaging+AppDelegate.h"
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
+index 1867f14..ba45c1f 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
+@@ -17,6 +17,7 @@
+ #import <Firebase/Firebase.h>
+ #import <RNFBApp/RNFBJSON.h>
+ #import <RNFBApp/RNFBRCTEventEmitter.h>
++#import <RNFBApp/RCTConvert+FIRApp.h>
+ #import <React/RCTConvert.h>
+ #import <React/RCTRootView.h>
+ 
 diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
 index dcc8e84..1d426e1 100644
 --- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
@@ -57,16 +69,3 @@ index dcc8e84..1d426e1 100644
  }
  
  RCT_EXPORT_METHOD(requestPermission
-diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
-index c4c0e74..6207148 100644
---- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
-+++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+NSNotificationCenter.m
-@@ -16,6 +16,7 @@
- 
- #import <Firebase/Firebase.h>
- #import <RNFBApp/RNFBJSON.h>
- #import <RNFBApp/RNFBRCTEventEmitter.h>
-+#import <RNFBApp/RCTConvert+FIRApp.h>
- #import <React/RCTConvert.h>
- #import <React/RCTRootView.h>
- 

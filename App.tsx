@@ -6,28 +6,96 @@
  */
 
 import React from 'react';
-import {
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
   SafeAreaProvider,
+  SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { VectorTileMapScreen } from './src/screens/VectorTileMapScreen';
 
-type TabKey = 'map' | 'settings';
+type RootTabParamList = {
+  Map: undefined;
+  Settings: undefined;
+};
 
-const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'map', label: 'Map' },
-  { key: 'settings', label: 'Settings' },
-];
+type TilesHostOverrideContextValue = {
+  tilesHostOverride: string;
+  setTilesHostOverride: (value: string) => void;
+};
+
+type TabBarIconProps = {
+  color: string;
+  focused: boolean;
+  size: number;
+};
+
+const Tab = createBottomTabNavigator<RootTabParamList>();
+const TilesHostOverrideContext =
+  React.createContext<TilesHostOverrideContextValue | null>(null);
+
+function getTabIconName(routeName: keyof RootTabParamList, focused: boolean) {
+  switch (routeName) {
+    case 'Map':
+      return focused ? 'map' : 'map-outline';
+    case 'Settings':
+      return focused ? 'settings' : 'settings-outline';
+  }
+}
+
+function useTilesHostOverride() {
+  const context = React.useContext(TilesHostOverrideContext);
+
+  if (!context) {
+    throw new Error('TilesHostOverrideContext is not available.');
+  }
+
+  return context;
+}
+
+function MapTabScreen() {
+  const { tilesHostOverride } = useTilesHostOverride();
+
+  return <VectorTileMapScreen hostOverride={tilesHostOverride} />;
+}
+
+function SettingsTabScreen() {
+  const { tilesHostOverride, setTilesHostOverride } = useTilesHostOverride();
+
+  return (
+    <SafeAreaView edges={['top']} style={styles.settingsContainer}>
+      <SettingsScreen
+        tilesHostOverride={tilesHostOverride}
+        onTilesHostOverrideChange={setTilesHostOverride}
+      />
+    </SafeAreaView>
+  );
+}
+
+function MapTabIcon({ color, focused, size }: TabBarIconProps) {
+  return (
+    <Ionicons
+      color={color}
+      name={getTabIconName('Map', focused)}
+      size={Math.max(size, 20)}
+    />
+  );
+}
+
+function SettingsTabIcon({ color, focused, size }: TabBarIconProps) {
+  return (
+    <Ionicons
+      color={color}
+      name={getTabIconName('Settings', focused)}
+      size={Math.max(size, 20)}
+    />
+  );
+}
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -41,91 +109,92 @@ function App() {
 }
 
 function AppContent() {
+  const isDarkMode = useColorScheme() === 'dark';
   const safeAreaInsets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = React.useState<TabKey>('map');
   const [tilesHostOverride, setTilesHostOverride] = React.useState<string>('');
-  const tabBarBottomPadding = Math.max(safeAreaInsets.bottom, 12);
-  const settingsBottomInset = tabBarBottomPadding + 56;
+  const navigationTheme = isDarkMode ? DarkTheme : DefaultTheme;
+  const tabBarActiveTintColor = isDarkMode ? '#f9fafb' : '#111827';
+  const tabBarInactiveTintColor = isDarkMode ? '#9ca3af' : '#6b7280';
+  const tabBarBottomInset = safeAreaInsets.bottom + 12;
+  const tilesHostOverrideValue = React.useMemo(
+    () => ({ tilesHostOverride, setTilesHostOverride }),
+    [tilesHostOverride],
+  );
 
   return (
-    <View style={styles.container}>
-      <View
-        style={[
-          styles.content,
-          activeTab === 'settings' && { paddingTop: safeAreaInsets.top },
-          activeTab === 'settings' && { paddingBottom: settingsBottomInset },
-        ]}
-      >
-        {activeTab === 'map' ? (
-          <VectorTileMapScreen hostOverride={tilesHostOverride} />
-        ) : (
-          <SettingsScreen
-            tilesHostOverride={tilesHostOverride}
-            onTilesHostOverrideChange={setTilesHostOverride}
+    <TilesHostOverrideContext.Provider value={tilesHostOverrideValue}>
+      <NavigationContainer theme={navigationTheme}>
+        <Tab.Navigator
+          initialRouteName="Map"
+          screenOptions={{
+            headerShown: false,
+            sceneStyle: styles.scene,
+            tabBarActiveTintColor,
+            tabBarInactiveTintColor,
+            tabBarStyle: [
+              styles.tabBar,
+              {
+                bottom: tabBarBottomInset,
+                height: 56,
+              },
+              isDarkMode ? styles.tabBarDark : styles.tabBarLight,
+            ],
+            tabBarLabelStyle: styles.tabLabel,
+            tabBarItemStyle: styles.tabItem,
+          }}
+        >
+          <Tab.Screen
+            component={MapTabScreen}
+            name="Map"
+            options={{ tabBarIcon: MapTabIcon }}
           />
-        )}
-      </View>
-      <View
-        style={[
-          styles.tabBar,
-          { paddingBottom: tabBarBottomPadding },
-        ]}
-      >
-        {TABS.map(tab => {
-          const isActive = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={[styles.tabButton, isActive && styles.tabButtonActive]}
-            >
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
+          <Tab.Screen
+            component={SettingsTabScreen}
+            name="Settings"
+            options={{ tabBarIcon: SettingsTabIcon }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </TilesHostOverrideContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scene: {
     flex: 1,
   },
-  content: {
+  settingsContainer: {
     flex: 1,
   },
   tabBar: {
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 0,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 0,
-    paddingTop: 12,
-    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    elevation: 0,
+    paddingBottom: 8,
+    paddingTop: 8,
+    borderRadius: 18,
   },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(17, 24, 39, 0.9)',
+  tabBarDark: {
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
   },
-  tabButtonActive: {
-    backgroundColor: '#111827',
+  tabBarLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#111827',
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   tabLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
   },
-  tabLabelActive: {
-    color: '#fff',
+  tabItem: {
+    borderRadius: 12,
   },
 });
 

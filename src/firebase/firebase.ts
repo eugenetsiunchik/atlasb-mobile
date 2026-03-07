@@ -12,7 +12,7 @@ function getDefaultFirebaseApp() {
   // If those files are missing, accessing the default app will throw at runtime.
   try {
     return firebase.app();
-  } catch (e) {
+  } catch {
     throw new Error(
       'Firebase is not configured. Add iOS `GoogleService-Info.plist` and Android `android/app/google-services.json`, then rebuild the app.',
     );
