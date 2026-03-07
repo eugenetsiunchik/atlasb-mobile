@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 
 import { buildLocalUrl, getLocalTileHost } from '../utils/localTiles';
@@ -12,6 +12,10 @@ type AnyStyle = Record<string, unknown> & {
 };
 
 const STYLE_PATH = '/styles/style-dark.json';
+
+type VectorTileMapScreenProps = {
+  hostOverride?: string;
+};
 
 function getOrigin(url: string) {
   try {
@@ -55,29 +59,21 @@ function absolutizeStyle(style: AnyStyle, origin: string): AnyStyle {
   return next;
 }
 
-export function VectorTileMapScreen() {
-  const [hostOverride, setHostOverride] = React.useState<string>('');
-  const [portOverride, setPortOverride] = React.useState<string>('');
+export function VectorTileMapScreen({
+  hostOverride = '',
+}: VectorTileMapScreenProps) {
   const hostAuto = React.useMemo(() => getLocalTileHost(), []);
   const host = hostOverride.trim() ? hostOverride.trim() : hostAuto ?? '';
-  const port = React.useMemo(() => {
-    const t = portOverride.trim();
-    if (!t) return undefined;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : undefined;
-  }, [portOverride]);
   const styleURL = React.useMemo(
-    () => buildLocalUrl(STYLE_PATH, { hostOverride: host, port }) ?? '',
-    [host, port],
+    () => buildLocalUrl(STYLE_PATH, { hostOverride: host }) ?? '',
+    [host],
   );
   const origin = getOrigin(styleURL);
 
   const [mapStyle, setMapStyle] = React.useState<string | AnyStyle>(
     styleURL || '',
   );
-  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>(
-    'loading',
-  );
+
   const [errorText, setErrorText] = React.useState<string>('');
 
   React.useEffect(() => {
@@ -87,7 +83,6 @@ export function VectorTileMapScreen() {
       try {
         setErrorText('');
         if (!styleURL) {
-          setStatus('error');
           setErrorText(
             'Local tile host is not set. On physical devices, enter your computer LAN IP.',
           );
@@ -101,10 +96,8 @@ export function VectorTileMapScreen() {
 
         const styleObj = (json ?? {}) as AnyStyle;
         setMapStyle(absolutizeStyle(styleObj, origin));
-        setStatus('ready');
       } catch (e) {
         if (cancelled) return;
-        setStatus('error');
         // Let MapLibre try to load the original style URL (it may surface a more
         // detailed native error than our fetch path).
         setMapStyle(styleURL);
@@ -119,41 +112,6 @@ export function VectorTileMapScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Vector tiles (local)</Text>
-      <Text style={styles.subtitle}>
-        {styleURL || '(no local tile host configured)'} ({status})
-      </Text>
-      <View style={styles.row}>
-        <Text style={styles.label}>Host</Text>
-        <TextInput
-          value={hostOverride}
-          onChangeText={setHostOverride}
-          placeholder={hostAuto ?? '192.168.x.x'}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          style={styles.input}
-        />
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>Port</Text>
-        <TextInput
-          value={portOverride}
-          onChangeText={setPortOverride}
-          placeholder="(optional)"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="number-pad"
-          style={styles.input}
-        />
-      </View>
-      {!!errorText && (
-        <Text style={styles.error}>
-          {errorText}
-          {'\n'}Tip: make sure the server is reachable at the URL above.
-        </Text>
-      )}
-
       {!!styleURL && (
         <MapLibreGL.MapView style={styles.map} mapStyle={mapStyle}>
           <MapLibreGL.Camera
@@ -162,6 +120,15 @@ export function VectorTileMapScreen() {
           />
         </MapLibreGL.MapView>
       )}
+      {!!errorText && (
+        <View style={styles.errorOverlay}>
+          <Text style={styles.error}>
+            {errorText}
+            {'\n'}Tip: make sure the server is reachable from the device.
+            {hostAuto ? ` Auto-detected host: ${hostAuto}.` : ''}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -169,44 +136,23 @@ export function VectorTileMapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    gap: 8,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#666',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  label: {
-    width: 40,
-    color: '#444',
-    fontSize: 12,
-  },
-  input: {
-    flex: 1,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 12,
   },
   error: {
     fontSize: 12,
-    color: '#b00020',
+    color: '#fff',
   },
   map: {
     flex: 1,
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(176, 0, 32, 0.92)',
     borderRadius: 12,
-    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 });
 
