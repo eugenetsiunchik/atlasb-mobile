@@ -1,0 +1,14 @@
+---
+description: General Atlasb Mobile project context and TypeScript preference
+alwaysApply: true
+---
+
+# Atlasb Mobile
+
+- This project is a React Native mobile app.
+- The stack includes React Native 0.84, React 19, TypeScript, Firebase, MapLibre, `react-native-maps`, Zustand, and Zod.
+- Map environment selection is part of the app workflow. The main environments are `local`, `staging`, and `prod`, and startup scripts wire the active map environment.
+- Prefer TypeScript for app code. New source files should be `.ts` or `.tsx`, not `.js`.
+- When converting or editing app logic, favor typed interfaces, explicit props, and typed utility helpers over untyped code.
+- Keep JavaScript only where the toolchain or React Native config expects it, such as existing config/scripts that already use CommonJS.
+- Follow existing project patterns and make minimal, focused changes instead of broad rewrites.
