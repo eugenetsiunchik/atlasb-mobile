@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 
+import { requireAuthForAction } from '../services/auth';
 import { buildLocalUrl, getLocalTileHost } from '../utils/localTiles';
 
 type AnyStyle = Record<string, unknown> & {
@@ -76,6 +77,22 @@ export function VectorTileMapScreen({
 
   const [errorText, setErrorText] = React.useState<string>('');
 
+  const handleUploadPost = React.useCallback(() => {
+    if (!requireAuthForAction('uploadPost')) {
+      return;
+    }
+
+    Alert.alert('Post flow', 'Authenticated users can continue into the upload flow from here.');
+  }, []);
+
+  const handleSuggestEdit = React.useCallback(() => {
+    if (!requireAuthForAction('suggestEdit')) {
+      return;
+    }
+
+    Alert.alert('Suggest edit', 'Authenticated users can continue into the edit suggestion flow from here.');
+  }, []);
+
   React.useEffect(() => {
     let cancelled = false;
 
@@ -129,6 +146,28 @@ export function VectorTileMapScreen({
           </Text>
         </View>
       )}
+      <View className="absolute bottom-6 left-4 right-4 gap-2 rounded-2xl bg-white/92 p-3">
+        <Text className="text-sm font-semibold text-neutral-950">
+          Guest-first actions
+        </Text>
+        <Text className="text-xs leading-4 text-neutral-500">
+          Browsing stays open. Posting and edit suggestions ask for sign-in only when needed.
+        </Text>
+        <View className="flex-row gap-2">
+          <Pressable
+            className="flex-1 items-center rounded-xl bg-sky-600 px-3 py-3"
+            onPress={handleUploadPost}
+          >
+            <Text className="text-sm font-semibold text-white">Create post</Text>
+          </Pressable>
+          <Pressable
+            className="flex-1 items-center rounded-xl border border-neutral-300 bg-white px-3 py-3"
+            onPress={handleSuggestEdit}
+          >
+            <Text className="text-sm font-semibold text-neutral-900">Suggest edit</Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }

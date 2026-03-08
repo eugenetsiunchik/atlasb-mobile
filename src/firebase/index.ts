@@ -1,8 +1,10 @@
 export {
-  firebaseApp,
-  firebaseAuth,
-  firebaseFirestore,
-  firebaseMessaging,
-  firebaseStorage,
+  getFirebaseApp,
+  getFirebaseAuth,
+  getFirebaseConfigurationErrorMessage,
+  getFirebaseFirestore,
+  getFirebaseMessaging,
+  getFirebaseStorage,
+  isFirebaseConfigured,
 } from './firebase';
 

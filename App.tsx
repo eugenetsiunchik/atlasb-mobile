@@ -8,20 +8,32 @@
 import './global.css';
 import React from 'react';
 import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
-import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  NavigationContainer,
+} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Map, MapPinned, Settings, Settings2 } from 'lucide-react-native';
+import { Map, MapPinned, Settings, Settings2, User } from 'lucide-react-native';
+import { Provider } from 'react-redux';
 import {
   SafeAreaProvider,
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { SettingsScreen } from './src/screens/SettingsScreen';
-import { VectorTileMapScreen } from './src/screens/VectorTileMapScreen';
+import { AuthPromptModal } from './src/components';
+import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
+import {
+  ProfileScreen,
+  SettingsScreen,
+  VectorTileMapScreen,
+} from './src/screens';
+import { authActions, store, useAppDispatch } from './src/store';
 
 type RootTabParamList = {
   Map: undefined;
+  Profile: undefined;
   Settings: undefined;
 };
 
@@ -47,6 +59,8 @@ function getTabIcon(
   switch (routeName) {
     case 'Map':
       return focused ? MapPinned : Map;
+    case 'Profile':
+      return User;
     case 'Settings':
       return focused ? Settings2 : Settings;
   }
@@ -81,6 +95,14 @@ function SettingsTabScreen() {
   );
 }
 
+function ProfileTabScreen() {
+  return (
+    <SafeAreaView edges={['top']} className="flex-1">
+      <ProfileScreen />
+    </SafeAreaView>
+  );
+}
+
 function TabBarIcon({
   color,
   focused,
@@ -105,11 +127,77 @@ function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <Provider store={store}>
+      <SafeAreaProvider>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <AppContent />
+      </SafeAreaProvider>
+    </Provider>
   );
+}
+
+function AuthBootstrap() {
+  const dispatch = useAppDispatch();
+
+  React.useEffect(() => {
+    let isMounted = true;
+    let authChangeVersion = 0;
+
+    dispatch(authActions.authBootstrapStarted());
+
+    const unsubscribe = subscribeToAuthStateChanges(async user => {
+      const currentVersion = ++authChangeVersion;
+
+      if (!user) {
+        if (!isMounted || currentVersion !== authChangeVersion) {
+          return;
+        }
+
+        dispatch(authActions.authSessionCleared());
+        return;
+      }
+
+      try {
+        const profile = await ensureUserProfile(user);
+
+        if (!isMounted || currentVersion !== authChangeVersion) {
+          return;
+        }
+
+        dispatch(
+          authActions.authSessionChanged({
+            profile,
+            user,
+          }),
+        );
+      } catch (error) {
+        if (!isMounted || currentVersion !== authChangeVersion) {
+          return;
+        }
+
+        dispatch(
+          authActions.authSessionChanged({
+            profile: null,
+            user,
+          }),
+        );
+        dispatch(
+          authActions.authErrorSet(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load your account profile.',
+          ),
+        );
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [dispatch]);
+
+  return null;
 }
 
 function AppContent() {
@@ -127,6 +215,7 @@ function AppContent() {
 
   return (
     <TilesHostOverrideContext.Provider value={tilesHostOverrideValue}>
+      <AuthBootstrap />
       <NavigationContainer theme={navigationTheme}>
         <Tab.Navigator
           initialRouteName="Map"
@@ -150,9 +239,11 @@ function AppContent() {
           })}
         >
           <Tab.Screen component={MapTabScreen} name="Map" />
+          <Tab.Screen component={ProfileTabScreen} name="Profile" />
           <Tab.Screen component={SettingsTabScreen} name="Settings" />
         </Tab.Navigator>
       </NavigationContainer>
+      <AuthPromptModal />
     </TilesHostOverrideContext.Provider>
   );
 }

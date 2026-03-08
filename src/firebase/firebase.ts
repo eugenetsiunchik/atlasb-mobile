@@ -4,6 +4,9 @@ import firestore from '@react-native-firebase/firestore';
 import messaging from '@react-native-firebase/messaging';
 import storage from '@react-native-firebase/storage';
 
+const FIREBASE_CONFIGURATION_ERROR =
+  'Firebase is not configured. Add iOS `GoogleService-Info.plist` and Android `android/app/google-services.json`, then rebuild the app.';
+
 function getDefaultFirebaseApp() {
   // With React Native Firebase, the default app is configured natively via:
   // - iOS: `ios/GoogleService-Info.plist`
@@ -13,17 +16,44 @@ function getDefaultFirebaseApp() {
   try {
     return firebase.app();
   } catch {
-    throw new Error(
-      'Firebase is not configured. Add iOS `GoogleService-Info.plist` and Android `android/app/google-services.json`, then rebuild the app.',
-    );
+    throw new Error(FIREBASE_CONFIGURATION_ERROR);
   }
 }
 
-export const firebaseApp = getDefaultFirebaseApp();
+export function getFirebaseConfigurationErrorMessage() {
+  return FIREBASE_CONFIGURATION_ERROR;
+}
 
-// Singletons (default app instances)
-export const firebaseAuth = auth();
-export const firebaseFirestore = firestore();
-export const firebaseStorage = storage();
-export const firebaseMessaging = messaging();
+export function isFirebaseConfigured() {
+  try {
+    firebase.app();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getFirebaseApp() {
+  return getDefaultFirebaseApp();
+}
+
+export function getFirebaseAuth() {
+  getDefaultFirebaseApp();
+  return auth();
+}
+
+export function getFirebaseFirestore() {
+  getDefaultFirebaseApp();
+  return firestore();
+}
+
+export function getFirebaseStorage() {
+  getDefaultFirebaseApp();
+  return storage();
+}
+
+export function getFirebaseMessaging() {
+  getDefaultFirebaseApp();
+  return messaging();
+}
 
