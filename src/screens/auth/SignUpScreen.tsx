@@ -1,8 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 
-import { AuthButton } from '../../components/auth/AuthButton';
-import { AuthTextField } from '../../components/auth/AuthTextField';
+import { AuthButton, AuthTextField } from '../../components';
 import {
   selectAuthError,
   selectAuthSubmitting,

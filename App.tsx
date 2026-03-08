@@ -7,14 +7,14 @@
 
 import './global.css';
 import React from 'react';
-import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import {
   DarkTheme,
   DefaultTheme,
   NavigationContainer,
 } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Map, MapPinned, Settings, Settings2, User } from 'lucide-react-native';
+import { CurvedBottomBar } from 'react-native-curved-bottom-bar';
+import { Map, MapPinned, Plus, Settings, Settings2, User } from 'lucide-react-native';
 import { Provider } from 'react-redux';
 import {
   SafeAreaProvider,
@@ -22,8 +22,9 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { AuthPromptModal } from './src/components';
+import { AuthPromptModal, CreateActionMenu } from './src/components';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
+import { theme } from './src/theme';
 import {
   ProfileScreen,
   SettingsScreen,
@@ -47,10 +48,12 @@ type TabBarIconProps = {
   focused: boolean;
   size: number;
 };
-
-const Tab = createBottomTabNavigator<RootTabParamList>();
 const TilesHostOverrideContext =
   React.createContext<TilesHostOverrideContextValue | null>(null);
+const CurvedBottomBarNavigator =
+  CurvedBottomBar.Navigator as unknown as React.ComponentType<any>;
+const CurvedBottomBarScreen =
+  CurvedBottomBar.Screen as unknown as React.ComponentType<any>;
 
 function getTabIcon(
   routeName: keyof RootTabParamList,
@@ -202,46 +205,137 @@ function AuthBootstrap() {
 
 function AppContent() {
   const isDarkMode = useColorScheme() === 'dark';
+  const themeMode = isDarkMode ? 'dark' : 'light';
   const safeAreaInsets = useSafeAreaInsets();
   const [tilesHostOverride, setTilesHostOverride] = React.useState<string>('');
+  const [createMenuVisible, setCreateMenuVisible] = React.useState(false);
   const navigationTheme = isDarkMode ? DarkTheme : DefaultTheme;
-  const tabBarActiveTintColor = isDarkMode ? '#f9fafb' : '#111827';
-  const tabBarInactiveTintColor = isDarkMode ? '#9ca3af' : '#6b7280';
-  const tabBarHeight = 56 + safeAreaInsets.bottom;
+  const sceneBackgroundColor = navigationTheme.colors.background;
+  const tabBarActiveTintColor = theme.tabBar.accent[themeMode];
+  const tabBarInactiveTintColor = theme.tabBar.inactiveTint[themeMode];
+  const tabBarBackgroundColor = theme.tabBar.background[themeMode];
   const tilesHostOverrideValue = React.useMemo(
     () => ({ tilesHostOverride, setTilesHostOverride }),
     [tilesHostOverride],
   );
+  const handleCloseCreateMenu = React.useCallback(() => {
+    setCreateMenuVisible(false);
+  }, []);
+  const handleToggleCreateMenu = React.useCallback(() => {
+    setCreateMenuVisible(currentValue => !currentValue);
+  }, []);
+  const renderCurvedTabItem = React.useCallback(
+    ({
+      navigate,
+      routeName,
+      selectedTab,
+    }: {
+      navigate: (routeName: string) => void;
+      routeName: string;
+      selectedTab: string;
+    }) => {
+      const typedRouteName = routeName as keyof RootTabParamList;
+      const focused = routeName === selectedTab;
+      const color = focused ? tabBarActiveTintColor : tabBarInactiveTintColor;
+
+      return (
+        <Pressable
+          onPress={() => {
+            handleCloseCreateMenu();
+            navigate(routeName);
+          }}
+          style={styles.curvedTabItem}
+        >
+          {renderTabBarIcon(typedRouteName, {
+            color,
+            focused,
+            size: 22,
+          })}
+          <Text style={[styles.curvedTabLabel, { color }]}>{routeName}</Text>
+        </Pressable>
+      );
+    },
+    [handleCloseCreateMenu, tabBarActiveTintColor, tabBarInactiveTintColor],
+  );
+  const renderCreateButton = React.useCallback(() => {
+    return (
+      <View
+        style={[
+          styles.createButtonShell,
+          {
+            backgroundColor: tabBarBackgroundColor,
+          },
+        ]}
+      >
+        <Pressable
+          accessibilityLabel={createMenuVisible ? 'Close create menu' : 'Open create menu'}
+          accessibilityRole="button"
+          onPress={handleToggleCreateMenu}
+          style={[
+            styles.createButton,
+            {
+              backgroundColor: tabBarActiveTintColor,
+            },
+          ]}
+        >
+          <Plus color={sceneBackgroundColor} size={28} strokeWidth={2.6} />
+        </Pressable>
+      </View>
+    );
+  }, [
+    createMenuVisible,
+    handleToggleCreateMenu,
+    sceneBackgroundColor,
+    tabBarActiveTintColor,
+    tabBarBackgroundColor,
+  ]);
 
   return (
     <TilesHostOverrideContext.Provider value={tilesHostOverrideValue}>
       <AuthBootstrap />
       <NavigationContainer theme={navigationTheme}>
-        <Tab.Navigator
+        <CreateActionMenu
+          bottomOffset={safeAreaInsets.bottom + 90}
+          isDarkMode={isDarkMode}
+          onClose={handleCloseCreateMenu}
+          visible={createMenuVisible}
+        />
+        <CurvedBottomBarNavigator
+          bgColor={tabBarBackgroundColor}
+          borderTopLeftRight
+          circlePosition="CENTER"
+          circleWidth={60}
+          height={66}
           initialRouteName="Map"
-          screenOptions={({ route }) => ({
+          renderCircle={renderCreateButton}
+          screenOptions={{
             headerShown: false,
             sceneStyle: styles.scene,
-            tabBarActiveTintColor,
-            tabBarInactiveTintColor,
-            tabBarStyle: [
-              styles.tabBar,
-              {
-                height: tabBarHeight,
-                paddingBottom: safeAreaInsets.bottom + 8,
-              },
-              isDarkMode ? styles.tabBarDark : styles.tabBarLight,
-            ],
+            tabBarItemStyle: styles.curvedTabScreen,
             tabBarLabelStyle: styles.tabLabel,
-            tabBarIconStyle: styles.tabIcon,
-            tabBarItemStyle: styles.tabItem,
-            tabBarIcon: props => renderTabBarIcon(route.name, props),
-          })}
+          }}
+          shadowStyle={isDarkMode ? styles.curvedShadowDark : styles.curvedShadowLight}
+          style={[
+            styles.curvedBar,
+            {
+              paddingBottom: safeAreaInsets.bottom,
+            },
+          ]}
+          tabBar={renderCurvedTabItem}
+          type="DOWN"
         >
-          <Tab.Screen component={MapTabScreen} name="Map" />
-          <Tab.Screen component={ProfileTabScreen} name="Profile" />
-          <Tab.Screen component={SettingsTabScreen} name="Settings" />
-        </Tab.Navigator>
+          <CurvedBottomBarScreen component={MapTabScreen} name="Map" position="LEFT" />
+          <CurvedBottomBarScreen
+            component={ProfileTabScreen}
+            name="Profile"
+            position="RIGHT"
+          />
+          <CurvedBottomBarScreen
+            component={SettingsTabScreen}
+            name="Settings"
+            position="RIGHT"
+          />
+        </CurvedBottomBarNavigator>
       </NavigationContainer>
       <AuthPromptModal />
     </TilesHostOverrideContext.Provider>
@@ -252,42 +346,66 @@ const styles = StyleSheet.create({
   scene: {
     flex: 1,
   },
-  tabBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: 0,
-    elevation: 0,
-    paddingTop: 8,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-  },
-  tabBarDark: {
-    backgroundColor: 'rgba(17, 24, 39, 0.9)',
-  },
-  tabBarLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#111827',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-  },
   tabLabel: {
     fontSize: 12,
     fontWeight: '600',
   },
-  tabIcon: {
-    marginBottom: 0,
-    alignSelf: 'center',
-  },
-  tabItem: {
-    borderRadius: 12,
+  createButton: {
     alignItems: 'center',
+    borderRadius: 34,
+    height: 69,
     justifyContent: 'center',
+    width: 69,
+  },
+  createButtonShell: {
+    alignItems: 'center',
+    borderRadius: 34,
+    bottom: 32,
+    height: 68,
+    justifyContent: 'center',
+    shadowColor: theme.tabBar.shellShadow,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    width: 68,
+  },
+  curvedBar: {
+    backgroundColor: 'transparent',
+  },
+  curvedShadowDark: {
+    shadowColor: theme.tabBar.curvedShadow.dark,
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+  },
+  curvedShadowLight: {
+    shadowColor: theme.tabBar.curvedShadow.light,
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+  },
+  curvedTabItem: {
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    justifyContent: 'center',
+    minHeight: 56,
+    paddingTop: 6,
+  },
+  curvedTabLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  curvedTabScreen: {
+    borderRadius: 12,
   },
 });
 

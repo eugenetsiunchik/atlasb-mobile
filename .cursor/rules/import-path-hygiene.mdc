@@ -1,0 +1,12 @@
+---
+description: Check whether imports can be shortened
+alwaysApply: true
+---
+
+# Import Path Hygiene
+
+- When adding or editing imports, check whether an import path can be shortened while staying consistent with existing project patterns.
+- Prefer the shorter existing path when the same symbol is already re-exported from a nearby `index.ts` or other established barrel file.
+- Prefer concise relative imports when the file is in the same feature area and a shorter local path is already used nearby.
+- Do not create new barrel files or perform broad import rewrites just to shorten paths unless the task explicitly asks for that refactor.
+- If a linter or IDE warning says `Import can be shortened`, treat it as a cleanup check before finishing the change.

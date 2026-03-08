@@ -11,6 +11,7 @@ alwaysApply: true
 - Prefer TypeScript for app code, test helpers, and Jest mocks. New source files should be `.ts` or `.tsx`, not `.js`, unless the toolchain specifically requires JavaScript/CommonJS.
 - When converting or editing app logic, favor typed interfaces, explicit props, and typed utility helpers over untyped code.
 - Prefer NativeWind `className` utilities for React Native UI layout, spacing, typography, and colors. Keep object `style` usage for React Navigation options and native/third-party components when that is cleaner or required.
+- When styling with `StyleSheet` or inline style objects, prefer shared tokens from `src/theme` for colors and spacing instead of hardcoded literals. Extend the theme with new semantic tokens when needed rather than scattering raw values across components.
 - Follow existing React Navigation patterns for tabs and navigation setup instead of introducing custom navigation abstractions.
 - Keep JavaScript only where the toolchain or React Native config clearly expects it, such as existing CommonJS config entrypoints like `babel.config.js`, `metro.config.js`, or `jest.config.js`.
 - After meaningful TypeScript changes, run the project type check with `yarn typecheck` in addition to relevant lint/tests.

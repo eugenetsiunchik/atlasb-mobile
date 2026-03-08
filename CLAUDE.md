@@ -34,6 +34,7 @@ Primary technologies used in the app:
 - New source files should use `.ts` or `.tsx` unless the toolchain explicitly expects JavaScript/CommonJS.
 - Favor typed props, typed helpers, and explicit interfaces over untyped code.
 - Prefer NativeWind `className` utilities for app UI. Keep object styles where React Navigation or native/third-party components still expect `style` objects.
+- When styling with `StyleSheet` or inline style objects, prefer shared tokens from `src/theme` for colors and spacing instead of hardcoded literals. Extend the theme with new semantic tokens when needed rather than scattering raw values across components.
 - Follow the existing React Navigation structure and tab configuration patterns when adding or updating navigation UI.
 - Keep JavaScript only where the React Native toolchain or project config explicitly expects it, such as CommonJS config entrypoints.
 - Follow the existing project structure and make focused changes instead of broad rewrites.
@@ -54,5 +55,6 @@ The default development entrypoint uses the map environment startup wrapper rath
 
 - Check existing patterns before introducing new abstractions.
 - Preserve existing environment and config behavior.
+- Prefer `src/theme` tokens for shared UI colors and spacing when editing style objects.
 - Run `yarn typecheck` after meaningful TypeScript changes, alongside relevant lint/tests.
 - Prefer minimal, maintainable changes that fit the current codebase.

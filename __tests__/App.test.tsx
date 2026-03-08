@@ -7,6 +7,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 
 jest.mock('react-redux', () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ReactLib = require('react');
 
   return {
@@ -100,12 +101,154 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
+jest.mock('react-native-curved-bottom-bar', () => {
+  const ReactLib = require('react');
+  const { View } = require('react-native');
+
+  const Navigator = ({
+    children,
+    renderCircle,
+    tabBar,
+  }: {
+    children: React.ReactNode;
+    renderCircle?: (props: {
+      navigate: jest.Mock;
+      routeName: string;
+      selectedTab: string;
+    }) => React.ReactNode;
+    tabBar?: (props: {
+      navigate: jest.Mock;
+      routeName: string;
+      selectedTab: string;
+    }) => React.ReactNode;
+  }) => {
+    const screens = ReactLib.Children.toArray(children) as Array<{
+      props: { name: string };
+    }>;
+    const navigate = jest.fn();
+    const selectedTab = screens[0]?.props.name ?? 'Map';
+
+    return ReactLib.createElement(
+      View,
+      null,
+      screens.map(screen =>
+        ReactLib.createElement(
+          View,
+          { key: `tab-${screen.props.name}` },
+          tabBar
+            ? tabBar({
+                navigate,
+                routeName: screen.props.name,
+                selectedTab,
+              })
+            : null,
+        ),
+      ),
+      renderCircle
+        ? renderCircle({
+            navigate,
+            routeName: 'Create',
+            selectedTab,
+          })
+        : null,
+      children,
+    );
+  };
+  const Screen = ({
+    component: Component,
+    name,
+  }: {
+    component?: React.ComponentType<any>;
+    name: string;
+  }) =>
+    ReactLib.createElement(
+      View,
+      null,
+      Component ? ReactLib.createElement(Component) : null,
+      name,
+    );
+
+  return {
+    __esModule: true,
+    CurvedBottomBar: {
+      Navigator,
+      Screen,
+    },
+  };
+});
+
 jest.mock('@react-navigation/bottom-tabs', () => {
   const ReactLib = require('react');
   const { View, Text } = require('react-native');
 
-  const Navigator = ({ children }: { children: React.ReactNode }) =>
-    ReactLib.createElement(View, null, children);
+  const Navigator = ({
+    children,
+    screenOptions,
+    tabBar,
+  }: {
+    children: React.ReactNode;
+    screenOptions?: ((args: { route: { key: string; name: string } }) => object) | object;
+    tabBar?: (props: {
+      descriptors: Record<string, { options: Record<string, unknown> }>;
+      insets: { bottom: number; left: number; right: number; top: number };
+      navigation: {
+        emit: jest.Mock;
+        navigate: jest.Mock;
+      };
+      state: {
+        index: number;
+        key: string;
+        routeNames: string[];
+        routes: Array<{ key: string; name: string; params: undefined }>;
+        type: string;
+      };
+    }) => React.ReactNode;
+  }) => {
+    const screens = ReactLib.Children.toArray(children) as Array<{
+      props: { name: string };
+    }>;
+    const routes = screens.map((screen, index) => ({
+      key: `${screen.props.name}-${index}`,
+      name: screen.props.name,
+      params: undefined,
+    }));
+    const descriptors = Object.fromEntries(
+      routes.map(route => [
+        route.key,
+        {
+          options:
+            typeof screenOptions === 'function'
+              ? screenOptions({ route })
+              : (screenOptions ?? {}),
+        },
+      ]),
+    );
+    const navigation = {
+      emit: jest.fn(() => ({ defaultPrevented: false })),
+      navigate: jest.fn(),
+    };
+    const state = {
+      index: 0,
+      key: 'tab-state',
+      routeNames: routes.map(route => route.name),
+      routes,
+      type: 'tab',
+    };
+
+    return ReactLib.createElement(
+      View,
+      null,
+      tabBar
+        ? tabBar({
+            descriptors,
+            insets: { bottom: 0, left: 0, right: 0, top: 0 },
+            navigation,
+            state,
+          })
+        : null,
+      children,
+    );
+  };
   const Screen = ({
     component: Component,
     name,
@@ -141,9 +284,27 @@ jest.mock('lucide-react-native', () => {
     __esModule: true,
     Map: createIcon('Map'),
     MapPinned: createIcon('MapPinned'),
+    FilePlus2: createIcon('FilePlus2'),
+    PencilLine: createIcon('PencilLine'),
+    Plus: createIcon('Plus'),
     Settings: createIcon('Settings'),
     Settings2: createIcon('Settings2'),
     User: createIcon('User'),
+  };
+});
+
+jest.mock('react-native-svg', () => {
+  const ReactLib = require('react');
+  const { View } = require('react-native');
+
+  const Svg = ({ children, ...props }: { children?: React.ReactNode }) =>
+    ReactLib.createElement(View, props, children);
+  const Path = (props: object) => ReactLib.createElement(View, props);
+
+  return {
+    __esModule: true,
+    default: Svg,
+    Path,
   };
 });
 

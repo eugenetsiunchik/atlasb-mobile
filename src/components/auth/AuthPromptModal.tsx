@@ -2,8 +2,7 @@ import React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 
 import type { AuthActionType } from '../../types';
-import { SignInScreen } from '../../screens/auth/SignInScreen';
-import { SignUpScreen } from '../../screens/auth/SignUpScreen';
+import { SignInScreen, SignUpScreen } from '../../screens';
 import {
   authActions,
   selectAuthModal,
