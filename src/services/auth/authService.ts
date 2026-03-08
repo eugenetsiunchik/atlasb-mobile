@@ -1,4 +1,14 @@
-import auth, { type FirebaseAuthTypes } from '@react-native-firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  reload,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  signOut as signOutFromFirebase,
+  type FirebaseAuthTypes,
+  updateProfile,
+} from '@react-native-firebase/auth';
 import {
   GoogleSignin,
   isCancelledResponse,
@@ -74,14 +84,15 @@ export function subscribeToAuthStateChanges(
     return () => {};
   }
 
-  return getFirebaseAuth().onAuthStateChanged(listener);
+  return onAuthStateChanged(getFirebaseAuth(), listener);
 }
 
 export async function signInWithEmail({
   email,
   password,
 }: EmailSignInParams) {
-  const credential = await getFirebaseAuth().signInWithEmailAndPassword(
+  const credential = await signInWithEmailAndPassword(
+    getFirebaseAuth(),
     email.trim(),
     password,
   );
@@ -95,16 +106,17 @@ export async function signUpWithEmail({
   password,
 }: EmailSignUpParams) {
   const firebaseAuth = getFirebaseAuth();
-  const credential = await firebaseAuth.createUserWithEmailAndPassword(
+  const credential = await createUserWithEmailAndPassword(
+    firebaseAuth,
     email.trim(),
     password,
   );
   const nextDisplayName = displayName.trim() || getFallbackDisplayName(email);
 
-  await credential.user.updateProfile({
+  await updateProfile(credential.user, {
     displayName: nextDisplayName,
   });
-  await credential.user.reload();
+  await reload(credential.user);
 
   return firebaseAuth.currentUser ?? credential.user;
 }
@@ -137,15 +149,15 @@ export async function signInWithGoogle() {
       );
     }
 
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-    const credential = await firebaseAuth.signInWithCredential(googleCredential);
+    const googleCredential = GoogleAuthProvider.credential(idToken);
+    const credential = await signInWithCredential(firebaseAuth, googleCredential);
 
     if (!credential.user.displayName && response.data.user.name) {
-      await credential.user.updateProfile({
+      await updateProfile(credential.user, {
         displayName: response.data.user.name,
         photoURL: response.data.user.photo,
       });
-      await credential.user.reload();
+      await reload(credential.user);
     }
 
     return firebaseAuth.currentUser ?? credential.user;
@@ -165,7 +177,7 @@ export async function signOut() {
     // Google Sign-In may never have been used, so this is intentionally best-effort.
   }
 
-  await getFirebaseAuth().signOut();
+  await signOutFromFirebase(getFirebaseAuth());
 }
 
 export async function startAppleSignInPlaceholder() {

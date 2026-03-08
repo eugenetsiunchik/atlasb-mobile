@@ -1,4 +1,9 @@
-import firestore, {
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  Timestamp,
   type FirebaseFirestoreTypes,
 } from '@react-native-firebase/firestore';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
@@ -40,39 +45,40 @@ function normalizeProfile(
     avatarUrl: data?.avatarUrl?.trim() || fallbackUser.photoURL || '',
     level: typeof data?.level === 'number' ? data.level : 1,
     xp: typeof data?.xp === 'number' ? data.xp : 0,
-    createdAt: data?.createdAt ?? firestore.Timestamp.now(),
+    createdAt: data?.createdAt ?? Timestamp.now(),
   };
 }
 
 function getProfileDocument(uid: string) {
-  return getFirebaseFirestore().collection('users').doc(uid);
+  return doc(collection(getFirebaseFirestore(), 'users'), uid);
 }
 
 export async function ensureUserProfile(user: FirebaseAuthTypes.User) {
   const profileDocument = getProfileDocument(user.uid);
-  const profileSnapshot = await profileDocument.get();
+  const profileSnapshot = await getDoc(profileDocument);
 
   if (!profileSnapshot.exists) {
     const profile: FirestoreUserProfile = {
       avatarUrl: user.photoURL || '',
-      createdAt: firestore.Timestamp.now(),
+      createdAt: Timestamp.now(),
       displayName: getFallbackDisplayName(user),
       level: 1,
       xp: 0,
     };
 
-    await profileDocument.set(profile);
+    await setDoc(profileDocument, profile);
 
     return normalizeProfile(user.uid, profile, user);
   }
 
   const normalizedProfile = normalizeProfile(
     user.uid,
-    profileSnapshot.data(),
+    profileSnapshot.data() as Partial<FirestoreUserProfile> | undefined,
     user,
   );
 
-  await profileDocument.set(
+  await setDoc(
+    profileDocument,
     {
       avatarUrl: normalizedProfile.avatarUrl,
       createdAt: normalizedProfile.createdAt,

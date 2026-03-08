@@ -1,8 +1,11 @@
-import firebase from '@react-native-firebase/app';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
-import messaging from '@react-native-firebase/messaging';
-import storage from '@react-native-firebase/storage';
+import { getApp, getApps, type FirebaseApp } from '@react-native-firebase/app';
+import { getAuth, type FirebaseAuthTypes } from '@react-native-firebase/auth';
+import {
+  getFirestore,
+  type FirebaseFirestoreTypes,
+} from '@react-native-firebase/firestore';
+import { getMessaging, type Messaging } from '@react-native-firebase/messaging';
+import { getStorage, type FirebaseStorageTypes } from '@react-native-firebase/storage';
 
 const FIREBASE_CONFIGURATION_ERROR =
   'Firebase is not configured. Add iOS `GoogleService-Info.plist` and Android `android/app/google-services.json`, then rebuild the app.';
@@ -14,9 +17,13 @@ function getDefaultFirebaseApp() {
   //
   // If those files are missing, accessing the default app will throw at runtime.
   try {
-    return firebase.app();
-  } catch {
-    throw new Error(FIREBASE_CONFIGURATION_ERROR);
+    return getApp();
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `${FIREBASE_CONFIGURATION_ERROR} Native error: ${error.message}`
+        : FIREBASE_CONFIGURATION_ERROR,
+    );
   }
 }
 
@@ -25,35 +32,26 @@ export function getFirebaseConfigurationErrorMessage() {
 }
 
 export function isFirebaseConfigured() {
-  try {
-    firebase.app();
-    return true;
-  } catch {
-    return false;
-  }
+  return getApps().length > 0;
 }
 
-export function getFirebaseApp() {
+export function getFirebaseApp(): FirebaseApp {
   return getDefaultFirebaseApp();
 }
 
-export function getFirebaseAuth() {
-  getDefaultFirebaseApp();
-  return auth();
+export function getFirebaseAuth(): FirebaseAuthTypes.Module {
+  return getAuth(getDefaultFirebaseApp());
 }
 
-export function getFirebaseFirestore() {
-  getDefaultFirebaseApp();
-  return firestore();
+export function getFirebaseFirestore(): FirebaseFirestoreTypes.Module {
+  return getFirestore(getDefaultFirebaseApp());
 }
 
-export function getFirebaseStorage() {
-  getDefaultFirebaseApp();
-  return storage();
+export function getFirebaseStorage(): FirebaseStorageTypes.Module {
+  return getStorage(getDefaultFirebaseApp());
 }
 
-export function getFirebaseMessaging() {
-  getDefaultFirebaseApp();
-  return messaging();
+export function getFirebaseMessaging(): Messaging {
+  return getMessaging(getDefaultFirebaseApp());
 }
 

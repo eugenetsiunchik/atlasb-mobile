@@ -31,6 +31,19 @@ jest.mock('../src/store', () => {
       status: 'guest',
       submitting: false,
     },
+    map: {
+      entities: {},
+      error: null,
+      filters: {
+        query: '',
+        regionIds: [],
+      },
+      ids: [],
+      locationPermission: 'unknown',
+      placesStatus: 'idle',
+      selectedPlaceId: null,
+      userLocation: null,
+    },
   };
   const dispatch = jest.fn();
 
@@ -91,6 +104,47 @@ jest.mock('../src/services/auth', () => ({
     return jest.fn();
   }),
 }));
+
+jest.mock('../src/features/map/config/tileServer', () => ({
+  __esModule: true,
+  loadResolvedMapStyle: jest.fn(async () => ({
+    config: {
+      attribution: 'AtlasB tile server',
+      maxZoomLevel: 18,
+      minZoomLevel: 5,
+      rasterTilesPath: '/tiles/{z}/{x}/{y}.png',
+      rasterTilesUrl: 'https://example.com/tiles/{z}/{x}/{y}.png',
+      stylePath: '/styles/style-dark.json',
+      styleUrl: 'https://example.com/styles/style-dark.json',
+      tileSize: 256,
+    },
+    mapStyle: 'https://example.com/styles/style-dark.json',
+    warning: null,
+  })),
+}));
+
+jest.mock('../src/features/map/services/placesService', () => ({
+  __esModule: true,
+  subscribeToPlaces: jest.fn((_filters, { onSuccess }) => {
+    onSuccess([]);
+    return jest.fn();
+  }),
+}));
+
+jest.mock('../src/screens/MapScreen', () => {
+  const ReactLib = require('react');
+  const { View, Text } = require('react-native');
+
+  return {
+    __esModule: true,
+    MapScreen: () =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(Text, null, 'MapScreen'),
+      ),
+  };
+});
 
 jest.mock('@react-navigation/native', () => {
   return {
@@ -318,6 +372,11 @@ jest.mock('@maplibre/maplibre-react-native', () => {
       MapView: ({ children, ...props }: { children?: React.ReactNode }) =>
         ReactLib.createElement(View, props, children),
       Camera: (props: object) => ReactLib.createElement(View, props),
+      CircleLayer: (props: object) => ReactLib.createElement(View, props),
+      ShapeSource: ({ children, ...props }: { children?: React.ReactNode }) =>
+        ReactLib.createElement(View, props, children),
+      SymbolLayer: (props: object) => ReactLib.createElement(View, props),
+      UserLocation: (props: object) => ReactLib.createElement(View, props),
     },
   };
 });

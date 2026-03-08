@@ -4,11 +4,13 @@ import {
   type UnknownAction,
 } from '@reduxjs/toolkit';
 
+import { mapReducer } from '../features/map/store';
 import { authReducer } from './auth';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    map: mapReducer,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({

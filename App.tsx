@@ -23,9 +23,9 @@ import {
 import { AppTabBar, AuthPromptModal, CreateActionMenu } from './src/components';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
 import {
+  MapScreen,
   ProfileScreen,
   SettingsScreen,
-  VectorTileMapScreen,
 } from './src/screens';
 import { authActions, store, useAppDispatch } from './src/store';
 
@@ -49,7 +49,7 @@ function useTilesHostOverride() {
 function MapTabScreen() {
   const { tilesHostOverride } = useTilesHostOverride();
 
-  return <VectorTileMapScreen hostOverride={tilesHostOverride} />;
+  return <MapScreen hostOverride={tilesHostOverride} />;
 }
 
 function SettingsTabScreen() {
