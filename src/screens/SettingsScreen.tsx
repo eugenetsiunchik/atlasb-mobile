@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import { activeMapEnvironment } from '../config/activeMapEnvironment';
 import { getLocalTileHost } from '../utils/localTiles';
@@ -17,15 +17,15 @@ export function SettingsScreen({
   const usingAutoHost = !tilesHostOverride.trim();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Settings</Text>
-      <Text style={styles.subtitle}>
+    <View className="flex-1 gap-3 p-4">
+      <Text className="text-[22px] font-bold text-neutral-900">Settings</Text>
+      <Text className="text-sm text-neutral-500">
         Configure how the local vector tile map connects during development.
       </Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Tiles</Text>
-        <Text style={styles.label}>Tiles host</Text>
+      <View className="gap-2 rounded-2xl border border-neutral-300 bg-white p-4">
+        <Text className="text-base font-semibold text-gray-900">Tiles</Text>
+        <Text className="text-xs font-semibold text-neutral-700">Tiles host</Text>
         <TextInput
           value={tilesHostOverride}
           onChangeText={onTilesHostOverrideChange}
@@ -33,19 +33,20 @@ export function SettingsScreen({
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
-          style={styles.input}
+          className="rounded-xl border border-neutral-300 px-3 py-2 text-sm text-neutral-900"
+          placeholderTextColor="#9ca3af"
         />
-        <Text style={styles.helpText}>
+        <Text className="text-xs text-neutral-500">
           Leave empty to use the detected host automatically.
         </Text>
-        <Text style={styles.metaText}>
+        <Text className="text-xs text-neutral-700">
           Active environment: {activeMapEnvironment.name}
         </Text>
-        <Text style={styles.metaText}>
+        <Text className="text-xs text-neutral-700">
           Current host: {usingAutoHost ? detectedHost ?? 'not detected' : tilesHostOverride.trim()}
         </Text>
         {activeMapEnvironment.baseUrl ? (
-          <Text style={styles.metaText}>
+          <Text className="text-xs text-neutral-700">
             Base URL: {activeMapEnvironment.baseUrl}
           </Text>
         ) : null}
@@ -53,53 +54,3 @@ export function SettingsScreen({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 12,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  card: {
-    gap: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#d7d7d7',
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#444',
-  },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-  },
-  helpText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#444',
-  },
-});

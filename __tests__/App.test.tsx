@@ -44,11 +44,21 @@ jest.mock('@react-navigation/bottom-tabs', () => {
   };
 });
 
-jest.mock('react-native-vector-icons/Ionicons', () => {
+jest.mock('lucide-react-native', () => {
   const ReactLib = require('react');
   const { Text } = require('react-native');
 
-  return ({ name }: { name: string }) => ReactLib.createElement(Text, null, name);
+  const createIcon = (name: string) =>
+    ({ color, size }: { color?: string; size?: number }) =>
+      ReactLib.createElement(Text, null, `${name}:${color ?? ''}:${size ?? ''}`);
+
+  return {
+    __esModule: true,
+    Map: createIcon('Map'),
+    MapPinned: createIcon('MapPinned'),
+    Settings: createIcon('Settings'),
+    Settings2: createIcon('Settings2'),
+  };
 });
 
 jest.mock('@maplibre/maplibre-react-native', () => {

@@ -4,9 +4,9 @@ import MapView, { UrlTile } from 'react-native-maps';
 
 export function HomeScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>AtlasbMobile</Text>
-      <Text style={styles.subtitle}>React Native + Firebase + OSM</Text>
+    <View className="flex-1 gap-2 p-4">
+      <Text className="text-[22px] font-bold text-neutral-900">AtlasbMobile</Text>
+      <Text className="text-sm text-neutral-500">React Native + Firebase + OSM</Text>
 
       <MapView
         style={styles.map}
@@ -24,32 +24,16 @@ export function HomeScreen() {
           tileSize={256}
         />
       </MapView>
-      <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
+      <Text className="text-xs text-neutral-500">© OpenStreetMap contributors</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 8,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#666',
-  },
   map: {
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  attribution: {
-    fontSize: 12,
-    color: '#666',
   },
 });
 

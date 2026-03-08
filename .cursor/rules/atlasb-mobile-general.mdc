@@ -1,14 +1,17 @@
 ---
-description: General Atlasb Mobile project context and TypeScript preference
+description: General Atlasb Mobile project context and UI/navigation conventions
 alwaysApply: true
 ---
 
 # Atlasb Mobile
 
 - This project is a React Native mobile app.
-- The stack includes React Native 0.84, React 19, TypeScript, Firebase, MapLibre, `react-native-maps`, Zustand, and Zod.
+- The stack includes React Native 0.84, React 19, TypeScript, Firebase, React Navigation, NativeWind/Tailwind, Lucide React Native, MapLibre, `react-native-maps`, Zustand, and Zod.
 - Map environment selection is part of the app workflow. The main environments are `local`, `staging`, and `prod`, and startup scripts wire the active map environment.
-- Prefer TypeScript for app code. New source files should be `.ts` or `.tsx`, not `.js`.
+- Prefer TypeScript for app code, test helpers, and Jest mocks. New source files should be `.ts` or `.tsx`, not `.js`, unless the toolchain specifically requires JavaScript/CommonJS.
 - When converting or editing app logic, favor typed interfaces, explicit props, and typed utility helpers over untyped code.
-- Keep JavaScript only where the toolchain or React Native config expects it, such as existing config/scripts that already use CommonJS.
+- Prefer NativeWind `className` utilities for React Native UI layout, spacing, typography, and colors. Keep object `style` usage for React Navigation options and native/third-party components when that is cleaner or required.
+- Follow existing React Navigation patterns for tabs and navigation setup instead of introducing custom navigation abstractions.
+- Keep JavaScript only where the toolchain or React Native config clearly expects it, such as existing CommonJS config entrypoints like `babel.config.js`, `metro.config.js`, or `jest.config.js`.
+- After meaningful TypeScript changes, run the project type check with `yarn typecheck` in addition to relevant lint/tests.
 - Follow existing project patterns and make minimal, focused changes instead of broad rewrites.

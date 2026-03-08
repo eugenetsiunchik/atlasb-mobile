@@ -5,16 +5,17 @@
  * @format
  */
 
+import './global.css';
 import React from 'react';
 import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Map, MapPinned, Settings, Settings2 } from 'lucide-react-native';
 import {
   SafeAreaProvider,
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { VectorTileMapScreen } from './src/screens/VectorTileMapScreen';
@@ -39,12 +40,15 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 const TilesHostOverrideContext =
   React.createContext<TilesHostOverrideContextValue | null>(null);
 
-function getTabIconName(routeName: keyof RootTabParamList, focused: boolean) {
+function getTabIcon(
+  routeName: keyof RootTabParamList,
+  focused: boolean,
+) {
   switch (routeName) {
     case 'Map':
-      return focused ? 'map' : 'map-outline';
+      return focused ? MapPinned : Map;
     case 'Settings':
-      return focused ? 'settings' : 'settings-outline';
+      return focused ? Settings2 : Settings;
   }
 }
 
@@ -68,7 +72,7 @@ function SettingsTabScreen() {
   const { tilesHostOverride, setTilesHostOverride } = useTilesHostOverride();
 
   return (
-    <SafeAreaView edges={['top']} style={styles.settingsContainer}>
+    <SafeAreaView edges={['top']} className="flex-1">
       <SettingsScreen
         tilesHostOverride={tilesHostOverride}
         onTilesHostOverrideChange={setTilesHostOverride}
@@ -77,24 +81,24 @@ function SettingsTabScreen() {
   );
 }
 
-function MapTabIcon({ color, focused, size }: TabBarIconProps) {
+function TabBarIcon({
+  color,
+  focused,
+  routeName,
+  size,
+}: TabBarIconProps & { routeName: keyof RootTabParamList }) {
+  const Icon = getTabIcon(routeName, focused);
+
   return (
-    <Ionicons
-      color={color}
-      name={getTabIconName('Map', focused)}
-      size={Math.max(size, 20)}
-    />
+    <Icon color={color} size={Math.max(size, 20)} strokeWidth={focused ? 2.25 : 2} />
   );
 }
 
-function SettingsTabIcon({ color, focused, size }: TabBarIconProps) {
-  return (
-    <Ionicons
-      color={color}
-      name={getTabIconName('Settings', focused)}
-      size={Math.max(size, 20)}
-    />
-  );
+function renderTabBarIcon(
+  routeName: keyof RootTabParamList,
+  props: TabBarIconProps,
+) {
+  return <TabBarIcon {...props} routeName={routeName} />;
 }
 
 function App() {
@@ -115,7 +119,7 @@ function AppContent() {
   const navigationTheme = isDarkMode ? DarkTheme : DefaultTheme;
   const tabBarActiveTintColor = isDarkMode ? '#f9fafb' : '#111827';
   const tabBarInactiveTintColor = isDarkMode ? '#9ca3af' : '#6b7280';
-  const tabBarBottomInset = safeAreaInsets.bottom + 12;
+  const tabBarHeight = 56 + safeAreaInsets.bottom;
   const tilesHostOverrideValue = React.useMemo(
     () => ({ tilesHostOverride, setTilesHostOverride }),
     [tilesHostOverride],
@@ -126,7 +130,7 @@ function AppContent() {
       <NavigationContainer theme={navigationTheme}>
         <Tab.Navigator
           initialRouteName="Map"
-          screenOptions={{
+          screenOptions={({ route }) => ({
             headerShown: false,
             sceneStyle: styles.scene,
             tabBarActiveTintColor,
@@ -134,25 +138,19 @@ function AppContent() {
             tabBarStyle: [
               styles.tabBar,
               {
-                bottom: tabBarBottomInset,
-                height: 56,
+                height: tabBarHeight,
+                paddingBottom: safeAreaInsets.bottom + 8,
               },
               isDarkMode ? styles.tabBarDark : styles.tabBarLight,
             ],
             tabBarLabelStyle: styles.tabLabel,
+            tabBarIconStyle: styles.tabIcon,
             tabBarItemStyle: styles.tabItem,
-          }}
+            tabBarIcon: props => renderTabBarIcon(route.name, props),
+          })}
         >
-          <Tab.Screen
-            component={MapTabScreen}
-            name="Map"
-            options={{ tabBarIcon: MapTabIcon }}
-          />
-          <Tab.Screen
-            component={SettingsTabScreen}
-            name="Settings"
-            options={{ tabBarIcon: SettingsTabIcon }}
-          />
+          <Tab.Screen component={MapTabScreen} name="Map" />
+          <Tab.Screen component={SettingsTabScreen} name="Settings" />
         </Tab.Navigator>
       </NavigationContainer>
     </TilesHostOverrideContext.Provider>
@@ -163,24 +161,22 @@ const styles = StyleSheet.create({
   scene: {
     flex: 1,
   },
-  settingsContainer: {
-    flex: 1,
-  },
   tabBar: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderTopWidth: 0,
     elevation: 0,
-    paddingBottom: 8,
     paddingTop: 8,
-    borderRadius: 18,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
   },
   tabBarDark: {
-    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+    backgroundColor: 'rgba(17, 24, 39, 0.9)',
   },
   tabBarLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#111827',
     shadowOffset: {
       width: 0,
@@ -193,8 +189,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  tabIcon: {
+    marginBottom: 0,
+    alignSelf: 'center',
+  },
   tabItem: {
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

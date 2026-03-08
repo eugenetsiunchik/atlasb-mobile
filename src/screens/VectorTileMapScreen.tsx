@@ -111,7 +111,7 @@ export function VectorTileMapScreen({
   }, [origin, styleURL]);
 
   return (
-    <View style={styles.container}>
+    <View className="flex-1">
       {!!styleURL && (
         <MapLibreGL.MapView style={styles.map} mapStyle={mapStyle}>
           <MapLibreGL.Camera
@@ -121,8 +121,8 @@ export function VectorTileMapScreen({
         </MapLibreGL.MapView>
       )}
       {!!errorText && (
-        <View style={styles.errorOverlay}>
-          <Text style={styles.error}>
+        <View className="absolute left-4 right-4 top-4 rounded-xl bg-rose-800/95 px-3 py-2.5">
+          <Text className="text-xs text-white">
             {errorText}
             {'\n'}Tip: make sure the server is reachable from the device.
             {hostAuto ? ` Auto-detected host: ${hostAuto}.` : ''}
@@ -134,25 +134,8 @@ export function VectorTileMapScreen({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  error: {
-    fontSize: 12,
-    color: '#fff',
-  },
   map: {
     flex: 1,
-  },
-  errorOverlay: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(176, 0, 32, 0.92)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
 });
 
