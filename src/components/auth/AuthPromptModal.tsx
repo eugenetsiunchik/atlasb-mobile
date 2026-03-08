@@ -18,6 +18,8 @@ const actionCopy: Record<AuthActionType, string> = {
     'Sign in to unlock saved profile progress and other persistent features.',
   suggestEdit: 'Sign in to suggest an edit so we can attribute and track your changes.',
   uploadPost: 'Sign in to upload or post content tied to your account.',
+  userPlaceState:
+    'Sign in to save places and keep your discovered, visited, and collected progress in sync.',
 };
 
 export function AuthPromptModal() {

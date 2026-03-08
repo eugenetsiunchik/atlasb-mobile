@@ -5,12 +5,14 @@ import {
 } from '@reduxjs/toolkit';
 
 import { mapReducer } from '../features/map/store';
+import { userPlaceStatesReducer } from '../features/userPlace';
 import { authReducer } from './auth';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     map: mapReducer,
+    userPlaceStates: userPlaceStatesReducer,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({

@@ -44,6 +44,14 @@ jest.mock('../src/store', () => {
       selectedPlaceId: null,
       userLocation: null,
     },
+    userPlaceStates: {
+      entities: {},
+      error: null,
+      ids: [],
+      pendingByPlaceId: {},
+      pendingRequests: {},
+      status: 'idle',
+    },
   };
   const dispatch = jest.fn();
 
@@ -129,6 +137,11 @@ jest.mock('../src/features/map/services/placesService', () => ({
     onSuccess([]);
     return jest.fn();
   }),
+}));
+
+jest.mock('../src/features/userPlace', () => ({
+  __esModule: true,
+  useUserPlaceStatesSync: jest.fn(),
 }));
 
 jest.mock('../src/screens/MapScreen', () => {

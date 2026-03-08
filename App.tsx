@@ -21,6 +21,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { AppTabBar, AuthPromptModal, CreateActionMenu } from './src/components';
+import { useUserPlaceStatesSync } from './src/features/userPlace';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
 import {
   MapScreen,
@@ -167,6 +168,8 @@ function AppContent() {
   const handleToggleCreateMenu = React.useCallback(() => {
     setCreateMenuVisible(currentValue => !currentValue);
   }, []);
+
+  useUserPlaceStatesSync();
 
   return (
     <TilesHostOverrideContext.Provider value={tilesHostOverrideValue}>

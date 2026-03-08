@@ -4,7 +4,8 @@ import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 export type AuthActionType =
   | 'uploadPost'
   | 'suggestEdit'
-  | 'persistentProfileFeature';
+  | 'persistentProfileFeature'
+  | 'userPlaceState';
 
 export type AuthView = 'prompt' | 'signIn' | 'signUp' | null;
 
