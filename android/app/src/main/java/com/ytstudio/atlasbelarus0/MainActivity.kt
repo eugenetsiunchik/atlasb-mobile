@@ -1,4 +1,4 @@
-package com.atlasbmobile
+package com.ytstudio.atlasbelarus0
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

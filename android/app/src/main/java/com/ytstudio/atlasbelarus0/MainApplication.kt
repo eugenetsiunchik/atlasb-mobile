@@ -1,4 +1,4 @@
-package com.atlasbmobile
+package com.ytstudio.atlasbelarus0
 
 import android.app.Application
 import com.facebook.react.PackageList
