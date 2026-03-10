@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
-import { AuthButton } from '../components';
+import { AuthButton, ProfileAchievementsSection } from '../components';
 import { requireAuthForAction } from '../services/auth';
 import {
   authActions,
@@ -113,7 +113,14 @@ export function ProfileScreen() {
   const profileInitial = profile?.displayName?.charAt(0)?.toUpperCase() || 'A';
 
   return (
-    <View className="flex-1 gap-4 p-4">
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{
+        gap: 16,
+        padding: 16,
+        paddingBottom: 32,
+      }}
+    >
       <View className="gap-1">
         <Text className="text-[22px] font-bold text-neutral-900">Profile</Text>
         <Text className="text-sm text-neutral-500">
@@ -160,6 +167,8 @@ export function ProfileScreen() {
 
         <AuthButton label="Sign out" onPress={handleSignOut} variant="danger" />
       </View>
-    </View>
+
+      <ProfileAchievementsSection />
+    </ScrollView>
   );
 }

@@ -89,6 +89,16 @@ export const authSlice = createSlice({
     authErrorSet(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
     },
+    authProfilePatched(state, action: PayloadAction<Partial<UserProfile>>) {
+      if (!state.profile) {
+        return;
+      }
+
+      state.profile = {
+        ...state.profile,
+        ...action.payload,
+      };
+    },
     authViewSet(state, action: PayloadAction<AuthModalState['view']>) {
       state.modal.view = action.payload;
       state.error = null;

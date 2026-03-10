@@ -29,7 +29,13 @@ import {
   ProfileScreen,
   SettingsScreen,
 } from './src/screens';
-import { authActions, store, useAppDispatch } from './src/store';
+import {
+  authActions,
+  store,
+  useAchievementEvaluation,
+  useAppDispatch,
+  useUserAchievementsSync,
+} from './src/store';
 
 installGlobalFirebaseErrorLogging();
 
@@ -183,6 +189,8 @@ function AppContent() {
   }, []);
 
   useUserPlaceStatesSync();
+  useUserAchievementsSync();
+  useAchievementEvaluation();
 
   return (
     <TilesHostOverrideContext.Provider value={tilesHostOverrideValue}>

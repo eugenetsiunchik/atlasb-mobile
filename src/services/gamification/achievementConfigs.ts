@@ -1,0 +1,91 @@
+import {
+  ACHIEVEMENT_CONFIG_VERSION,
+  type AchievementDefinition,
+} from './achievementTypes';
+
+export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = Object.freeze([
+  {
+    category: 'exploration',
+    configVersion: ACHIEVEMENT_CONFIG_VERSION,
+    criteria: {
+      count: 1,
+      type: 'visitedPlacesCount',
+    },
+    description: 'Visit your first place in Atlasb.',
+    evaluationMode: 'client',
+    icon: 'map-pin',
+    id: 'first-place-visited',
+    title: 'First Steps',
+    xpReward: 25,
+  },
+  {
+    category: 'exploration',
+    configVersion: ACHIEVEMENT_CONFIG_VERSION,
+    criteria: {
+      count: 10,
+      type: 'visitedPlacesCount',
+    },
+    description: 'Visit 10 places across the map.',
+    evaluationMode: 'client',
+    icon: 'compass',
+    id: 'ten-places-visited',
+    title: 'Trailblazer',
+    xpReward: 120,
+  },
+  {
+    category: 'collection',
+    configVersion: ACHIEVEMENT_CONFIG_VERSION,
+    criteria: {
+      count: 1,
+      type: 'collectedPlacesCount',
+    },
+    description: 'Collect your first place.',
+    evaluationMode: 'client',
+    icon: 'trophy',
+    id: 'first-place-collected',
+    title: 'First Claim',
+    xpReward: 35,
+  },
+  {
+    category: 'contribution',
+    configVersion: ACHIEVEMENT_CONFIG_VERSION,
+    criteria: {
+      count: 1,
+      type: 'uploadedPhotosCount',
+    },
+    description: 'Upload your first approved photo.',
+    evaluationMode: 'hybrid',
+    icon: 'camera',
+    id: 'first-photo-uploaded',
+    title: 'Behind the Lens',
+    xpReward: 50,
+  },
+  {
+    category: 'quest',
+    configVersion: ACHIEVEMENT_CONFIG_VERSION,
+    criteria: {
+      count: 1,
+      type: 'completedQuestsCount',
+    },
+    description: 'Complete your first quest.',
+    evaluationMode: 'hybrid',
+    icon: 'scroll',
+    id: 'first-quest-completed',
+    title: 'Quest Starter',
+    xpReward: 60,
+  },
+  {
+    category: 'exploration',
+    configVersion: ACHIEVEMENT_CONFIG_VERSION,
+    criteria: {
+      minPlacesPerRegion: 1,
+      type: 'visitedPlaceInEveryRegion',
+    },
+    description: 'Visit at least one place in every region.',
+    evaluationMode: 'client',
+    icon: 'map',
+    id: 'one-place-each-region',
+    title: 'Regional Explorer',
+    xpReward: 180,
+  },
+]);

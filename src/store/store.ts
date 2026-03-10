@@ -7,9 +7,11 @@ import {
 import { mapReducer } from '../features/map/store';
 import { userPlaceStatesReducer } from '../features/userPlace';
 import { authReducer } from './auth';
+import { achievementsReducer } from './achievementsSlice';
 
 export const store = configureStore({
   reducer: {
+    achievements: achievementsReducer,
     auth: authReducer,
     map: mapReducer,
     userPlaceStates: userPlaceStatesReducer,
