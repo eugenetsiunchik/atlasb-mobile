@@ -8,15 +8,16 @@ import {
 } from '@react-native-firebase/firestore';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
-import { getFirebaseFirestore } from '../../firebase';
+import { getFirebaseFirestore, logFirebaseError } from '../../firebase';
 import type { UserProfile } from '../../types';
 
 type FirestoreUserProfile = {
-  avatarUrl: string;
-  createdAt: FirebaseFirestoreTypes.Timestamp | null;
-  displayName: string;
-  level: number;
-  xp: number;
+  avatarUrl?: string;
+  createdAt?: FirebaseFirestoreTypes.Timestamp | null;
+  displayName?: string;
+  level?: number;
+  userId?: string;
+  xp?: number;
 };
 
 function getFallbackDisplayName(user: FirebaseAuthTypes.User) {
@@ -54,19 +55,46 @@ function getProfileDocument(uid: string) {
 }
 
 export async function ensureUserProfile(user: FirebaseAuthTypes.User) {
+  const profilePath = `users/${user.uid}`;
   const profileDocument = getProfileDocument(user.uid);
-  const profileSnapshot = await getDoc(profileDocument);
+  let profileSnapshot: FirebaseFirestoreTypes.DocumentSnapshot<FirebaseFirestoreTypes.DocumentData>;
+
+  try {
+    profileSnapshot = await getDoc(profileDocument);
+  } catch (error) {
+    logFirebaseError(
+      'Firestore get user profile failed',
+      {
+        operation: 'getDoc',
+        path: profilePath,
+        uid: user.uid,
+      },
+      error,
+    );
+    throw error;
+  }
 
   if (!profileSnapshot.exists) {
     const profile: FirestoreUserProfile = {
-      avatarUrl: user.photoURL || '',
-      createdAt: Timestamp.now(),
+      userId: user.uid,
       displayName: getFallbackDisplayName(user),
-      level: 1,
-      xp: 0,
     };
 
-    await setDoc(profileDocument, profile);
+    try {
+      await setDoc(profileDocument, profile);
+    } catch (error) {
+      logFirebaseError(
+        'Firestore create user profile failed',
+        {
+          operation: 'setDoc',
+          path: profilePath,
+          payload: profile,
+          uid: user.uid,
+        },
+        error,
+      );
+      throw error;
+    }
 
     return normalizeProfile(user.uid, profile, user);
   }
@@ -75,18 +103,6 @@ export async function ensureUserProfile(user: FirebaseAuthTypes.User) {
     user.uid,
     profileSnapshot.data() as Partial<FirestoreUserProfile> | undefined,
     user,
-  );
-
-  await setDoc(
-    profileDocument,
-    {
-      avatarUrl: normalizedProfile.avatarUrl,
-      createdAt: normalizedProfile.createdAt,
-      displayName: normalizedProfile.displayName,
-      level: normalizedProfile.level,
-      xp: normalizedProfile.xp,
-    },
-    { merge: true },
   );
 
   return normalizedProfile;

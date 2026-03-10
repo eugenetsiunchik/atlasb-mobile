@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlacePreviewCard } from '../features/map/components/PlacePreviewCard';
 import { loadResolvedMapStyle } from '../features/map/config/tileServer';
 import { subscribeToPlaces } from '../features/map/services/placesService';
+import { logFirebaseError } from '../firebase';
 import {
   mapActions,
   selectAllMapPlaces,
@@ -140,6 +141,21 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
       },
     });
   }, [dispatch, filters]);
+
+  React.useEffect(() => {
+    if (!mapError) {
+      return;
+    }
+
+    logFirebaseError(
+      'Map Redux error state set',
+      {
+        filters,
+        placesStatus,
+      },
+      new Error(mapError),
+    );
+  }, [filters, mapError, placesStatus]);
 
   const placesFeatureCollection = React.useMemo<GeoJsonPlaceFeatureCollection>(
     () => ({

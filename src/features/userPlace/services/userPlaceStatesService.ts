@@ -12,6 +12,7 @@ import {
   getFirebaseConfigurationErrorMessage,
   getFirebaseFirestore,
   isFirebaseConfigured,
+  logFirebaseError,
 } from '../../../firebase';
 import {
   USER_PLACE_STATES_SUBCOLLECTION_NAME,
@@ -98,6 +99,15 @@ export function subscribeToUserPlaceStates(
       options.onSuccess(states);
     },
     error => {
+      logFirebaseError(
+        'Firestore subscribe user place states failed',
+        {
+          operation: 'onSnapshot',
+          path: `users/${uid}/${USER_PLACE_STATES_SUBCOLLECTION_NAME}`,
+          uid,
+        },
+        error,
+      );
       options.onError(
         error instanceof Error
           ? error.message
@@ -115,10 +125,26 @@ export async function applyUserPlaceWriteAction(params: {
   uid: string;
 }) {
   const { action, nextState, placeId, previousState, uid } = params;
+  const documentPath = `users/${uid}/${USER_PLACE_STATES_SUBCOLLECTION_NAME}/${placeId}`;
   const userPlaceStateDocument = getUserPlaceStateDocument(uid, placeId);
 
   if (!nextState || !hasPersistedUserPlaceState(nextState)) {
-    await deleteDoc(userPlaceStateDocument);
+    try {
+      await deleteDoc(userPlaceStateDocument);
+    } catch (error) {
+      logFirebaseError(
+        'Firestore delete user place state failed',
+        {
+          action,
+          operation: 'deleteDoc',
+          path: documentPath,
+          placeId,
+          uid,
+        },
+        error,
+      );
+      throw error;
+    }
     return;
   }
 
@@ -155,5 +181,21 @@ export async function applyUserPlaceWriteAction(params: {
       break;
   }
 
-  await setDoc(userPlaceStateDocument, payload, { merge: true });
+  try {
+    await setDoc(userPlaceStateDocument, payload, { merge: true });
+  } catch (error) {
+    logFirebaseError(
+      'Firestore write user place state failed',
+      {
+        action,
+        operation: 'setDoc',
+        path: documentPath,
+        payload,
+        placeId,
+        uid,
+      },
+      error,
+    );
+    throw error;
+  }
 }

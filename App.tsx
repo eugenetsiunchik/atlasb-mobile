@@ -22,6 +22,7 @@ import {
 
 import { AppTabBar, AuthPromptModal, CreateActionMenu } from './src/components';
 import { useUserPlaceStatesSync } from './src/features/userPlace';
+import { installGlobalFirebaseErrorLogging, logFirebaseError } from './src/firebase';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
 import {
   MapScreen,
@@ -29,6 +30,8 @@ import {
   SettingsScreen,
 } from './src/screens';
 import { authActions, store, useAppDispatch } from './src/store';
+
+installGlobalFirebaseErrorLogging();
 
 type TilesHostOverrideContextValue = {
   tilesHostOverride: string;
@@ -125,6 +128,16 @@ function AuthBootstrap() {
         if (!isMounted || currentVersion !== authChangeVersion) {
           return;
         }
+
+        logFirebaseError(
+          'Auth bootstrap profile load failed',
+          {
+            authChangeVersion: currentVersion,
+            email: user.email ?? null,
+            uid: user.uid,
+          },
+          error,
+        );
 
         dispatch(
           authActions.authSessionChanged({

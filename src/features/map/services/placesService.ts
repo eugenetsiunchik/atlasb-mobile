@@ -1,17 +1,21 @@
 import {
   collection,
   onSnapshot,
+  query,
   type FirebaseFirestoreTypes,
+  where,
 } from '@react-native-firebase/firestore';
 
 import {
   getFirebaseConfigurationErrorMessage,
   getFirebaseFirestore,
   isFirebaseConfigured,
+  logFirebaseError,
 } from '../../../firebase';
 import type { MapCoordinate, MapFilters, PlaceMapItem } from '../types';
 
 const PLACES_COLLECTION_NAME = 'places';
+const ACTIVE_PLACE_STATUS = 'active';
 
 type FirestoreGeoPointLike = {
   latitude: number;
@@ -119,6 +123,27 @@ function applyFilters(places: PlaceMapItem[], filters: MapFilters) {
   });
 }
 
+function logLoadedPlaces(params: {
+  filters: MapFilters;
+  filteredPlaces: PlaceMapItem[];
+  normalizedPlaces: PlaceMapItem[];
+  snapshot: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData>;
+}) {
+  const { filters, filteredPlaces, normalizedPlaces, snapshot } = params;
+
+  console.log('[Firebase] Firestore loaded places', {
+    fetchedCount: snapshot.size,
+    fetchedDocuments: snapshot.docs.map(documentSnapshot => ({
+      id: documentSnapshot.id,
+      ...documentSnapshot.data(),
+    })),
+    filteredCount: filteredPlaces.length,
+    filters,
+    normalizedCount: normalizedPlaces.length,
+    normalizedPlaces,
+  });
+}
+
 export function subscribeToPlaces(
   filters: MapFilters,
   options: {
@@ -132,18 +157,39 @@ export function subscribeToPlaces(
   }
 
   const placesCollection = collection(getFirebaseFirestore(), PLACES_COLLECTION_NAME);
+  const activePlacesQuery = query(
+    placesCollection,
+    where('status', '==', ACTIVE_PLACE_STATUS),
+  );
 
   return onSnapshot(
-    placesCollection,
+    activePlacesQuery,
     (snapshot: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData>) => {
       const normalizedPlaces = snapshot.docs
         .map(normalizePlace)
         .filter((place): place is PlaceMapItem => place !== null)
         .sort((left, right) => left.name.localeCompare(right.name));
+      const filteredPlaces = applyFilters(normalizedPlaces, filters);
 
-      options.onSuccess(applyFilters(normalizedPlaces, filters));
+      logLoadedPlaces({
+        filteredPlaces,
+        filters,
+        normalizedPlaces,
+        snapshot,
+      });
+
+      options.onSuccess(filteredPlaces);
     },
     error => {
+      logFirebaseError(
+        'Firestore subscribe places failed',
+        {
+          filters,
+          operation: 'onSnapshot',
+          path: `${PLACES_COLLECTION_NAME}?status=${ACTIVE_PLACE_STATUS}`,
+        },
+        error,
+      );
       options.onError(
         error instanceof Error
           ? error.message

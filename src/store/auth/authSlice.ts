@@ -64,6 +64,7 @@ export const authSlice = createSlice({
   reducers: {
     authBootstrapStarted(state) {
       state.initializing = true;
+      state.error = null;
     },
     authBootstrapFinished(state) {
       state.initializing = false;
@@ -76,10 +77,12 @@ export const authSlice = createSlice({
       }>,
     ) {
       setAuthenticatedState(state, action.payload.user, action.payload.profile);
+      state.error = null;
       state.initializing = false;
     },
     authSessionCleared(state) {
       setAuthenticatedState(state, null, null);
+      state.error = null;
       state.initializing = false;
       state.submitting = false;
     },

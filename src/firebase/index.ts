@@ -7,4 +7,9 @@ export {
   getFirebaseStorage,
   isFirebaseConfigured,
 } from './firebase';
+export {
+  installGlobalFirebaseErrorLogging,
+  logFirebaseError,
+  serializeFirebaseError,
+} from './debug';
 

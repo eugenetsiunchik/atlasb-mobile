@@ -26,6 +26,7 @@ import {
   getFirebaseAuth,
   getFirebaseConfigurationErrorMessage,
   isFirebaseConfigured,
+  logFirebaseError,
 } from '../../firebase';
 
 type EmailSignInParams = {
@@ -91,13 +92,25 @@ export async function signInWithEmail({
   email,
   password,
 }: EmailSignInParams) {
-  const credential = await signInWithEmailAndPassword(
-    getFirebaseAuth(),
-    email.trim(),
-    password,
-  );
+  try {
+    const credential = await signInWithEmailAndPassword(
+      getFirebaseAuth(),
+      email.trim(),
+      password,
+    );
 
-  return credential.user;
+    return credential.user;
+  } catch (error) {
+    logFirebaseError(
+      'Firebase email sign-in failed',
+      {
+        email: email.trim(),
+        operation: 'signInWithEmailAndPassword',
+      },
+      error,
+    );
+    throw error;
+  }
 }
 
 export async function signUpWithEmail({
@@ -106,19 +119,33 @@ export async function signUpWithEmail({
   password,
 }: EmailSignUpParams) {
   const firebaseAuth = getFirebaseAuth();
-  const credential = await createUserWithEmailAndPassword(
-    firebaseAuth,
-    email.trim(),
-    password,
-  );
-  const nextDisplayName = displayName.trim() || getFallbackDisplayName(email);
 
-  await updateProfile(credential.user, {
-    displayName: nextDisplayName,
-  });
-  await reload(credential.user);
+  try {
+    const credential = await createUserWithEmailAndPassword(
+      firebaseAuth,
+      email.trim(),
+      password,
+    );
+    const nextDisplayName = displayName.trim() || getFallbackDisplayName(email);
 
-  return firebaseAuth.currentUser ?? credential.user;
+    await updateProfile(credential.user, {
+      displayName: nextDisplayName,
+    });
+    await reload(credential.user);
+
+    return firebaseAuth.currentUser ?? credential.user;
+  } catch (error) {
+    logFirebaseError(
+      'Firebase email sign-up failed',
+      {
+        displayName: displayName.trim(),
+        email: email.trim(),
+        operation: 'createUserWithEmailAndPassword',
+      },
+      error,
+    );
+    throw error;
+  }
 }
 
 export async function signInWithGoogle() {
@@ -162,6 +189,13 @@ export async function signInWithGoogle() {
 
     return firebaseAuth.currentUser ?? credential.user;
   } catch (error) {
+    logFirebaseError(
+      'Firebase Google sign-in failed',
+      {
+        operation: 'signInWithCredential',
+      },
+      error,
+    );
     throw new Error(getFriendlyGoogleError(error));
   }
 }
@@ -177,7 +211,18 @@ export async function signOut() {
     // Google Sign-In may never have been used, so this is intentionally best-effort.
   }
 
-  await signOutFromFirebase(getFirebaseAuth());
+  try {
+    await signOutFromFirebase(getFirebaseAuth());
+  } catch (error) {
+    logFirebaseError(
+      'Firebase sign-out failed',
+      {
+        operation: 'signOut',
+      },
+      error,
+    );
+    throw error;
+  }
 }
 
 export async function startAppleSignInPlaceholder() {
