@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { selectAllMapPlaces } from '../features/map/store';
+import { selectCompletedQuestIds } from '../features/quests';
 import { selectAllUserPlaceStates } from '../features/userPlace/store';
 import { subscribeToUserAchievements } from '../services/gamification/userAchievementsService';
 import { useAppDispatch, useAppSelector } from './hooks';
@@ -10,6 +11,7 @@ import { evaluateAchievements } from './achievementThunks';
 import { selectAuthProfile, selectCurrentUser } from './auth';
 
 function buildEvaluationKey(params: {
+  completedQuestIds: string[];
   placeIdsByRegion: string[];
   placeStates: ReturnType<typeof selectAllUserPlaceStates>;
   profileXp: number;
@@ -23,9 +25,10 @@ function buildEvaluationKey(params: {
     .sort()
     .join('|');
   const placeRegionKey = params.placeIdsByRegion.sort().join('|');
+  const completedQuestKey = [...params.completedQuestIds].sort().join('|');
   const unlockedKey = [...params.unlockedAchievementIds].sort().join('|');
 
-  return `${params.profileXp}::${placeStateKey}::${placeRegionKey}::${unlockedKey}`;
+  return `${params.profileXp}::${placeStateKey}::${placeRegionKey}::${completedQuestKey}::${unlockedKey}`;
 }
 
 export function useUserAchievementsSync() {
@@ -56,18 +59,20 @@ export function useAchievementEvaluation() {
   const currentUser = useAppSelector(selectCurrentUser);
   const profile = useAppSelector(selectAuthProfile);
   const achievementsStatus = useAppSelector(selectAchievementsStatus);
+  const completedQuestIds = useAppSelector(selectCompletedQuestIds);
   const unlockedAchievementIds = useAppSelector(selectUnlockedAchievementIds);
   const userPlaceStates = useAppSelector(selectAllUserPlaceStates);
   const places = useAppSelector(selectAllMapPlaces);
   const evaluationKey = React.useMemo(
     () =>
       buildEvaluationKey({
+        completedQuestIds,
         placeIdsByRegion: places.map(place => `${place.id}:${place.region}`),
         placeStates: userPlaceStates,
         profileXp: profile?.xp ?? 0,
         unlockedAchievementIds,
       }),
-    [places, profile?.xp, unlockedAchievementIds, userPlaceStates],
+    [completedQuestIds, places, profile?.xp, unlockedAchievementIds, userPlaceStates],
   );
 
   React.useEffect(() => {

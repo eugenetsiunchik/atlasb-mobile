@@ -6,6 +6,7 @@ import {
 } from '../services/gamification';
 import { applyAchievementUnlocks } from '../services/gamification/userAchievementsService';
 import { selectAllMapPlaces } from '../features/map/store';
+import { selectCompletedQuestCount } from '../features/quests';
 import { selectAllUserPlaceStates } from '../features/userPlace/store';
 import { selectAuthProfile, selectCurrentUser } from './auth';
 import type { AppThunk } from './store';
@@ -27,7 +28,10 @@ export const evaluateAchievements =
       context: buildAchievementEvaluationContext({
         placeStates: selectAllUserPlaceStates(state),
         places: selectAllMapPlaces(state),
-        stats: createDefaultAchievementStats(),
+        stats: {
+          ...createDefaultAchievementStats(),
+          completedQuestsCount: selectCompletedQuestCount(state),
+        },
       }),
       definitions: ACHIEVEMENT_DEFINITIONS,
       unlockedAchievementIds: selectUnlockedAchievementIds(state),

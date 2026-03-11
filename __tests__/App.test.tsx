@@ -44,6 +44,15 @@ jest.mock('../src/store', () => {
       selectedPlaceId: null,
       userLocation: null,
     },
+    quests: {
+      entities: {},
+      ids: [],
+      progressByQuestId: {},
+      progressError: null,
+      progressStatus: 'idle',
+      questsError: null,
+      questsStatus: 'ready',
+    },
     userPlaceStates: {
       entities: {},
       error: null,
@@ -79,6 +88,7 @@ jest.mock('../src/store', () => {
     selectCurrentUser: (state: typeof mockState) => state.auth.currentUser,
     selectIsAuthenticated: (state: typeof mockState) =>
       state.auth.status === 'authenticated',
+    selectQuestCardById: () => null,
     signInWithEmailThunk: (payload: unknown) => ({
       payload,
       type: 'auth/signInWithEmail',
@@ -100,6 +110,8 @@ jest.mock('../src/store', () => {
     useAppDispatch: () => dispatch,
     useAppSelector: (selector: (state: typeof mockState) => unknown) =>
       selector(mockState),
+    useQuestProgressEvaluation: jest.fn(),
+    useQuestsSync: jest.fn(),
   };
 });
 
@@ -111,6 +123,12 @@ jest.mock('../src/services/auth', () => ({
     listener(null);
     return jest.fn();
   }),
+}));
+
+jest.mock('../src/firebase', () => ({
+  __esModule: true,
+  installGlobalFirebaseErrorLogging: jest.fn(),
+  logFirebaseError: jest.fn(),
 }));
 
 jest.mock('../src/features/map/config/tileServer', () => ({
@@ -155,6 +173,36 @@ jest.mock('../src/screens/MapScreen', () => {
         View,
         null,
         ReactLib.createElement(Text, null, 'MapScreen'),
+      ),
+  };
+});
+
+jest.mock('../src/screens/ActiveQuestsScreen', () => {
+  const ReactLib = require('react');
+  const { View, Text } = require('react-native');
+
+  return {
+    __esModule: true,
+    ActiveQuestsScreen: () =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(Text, null, 'ActiveQuestsScreen'),
+      ),
+  };
+});
+
+jest.mock('../src/screens/QuestDetailsScreen', () => {
+  const ReactLib = require('react');
+  const { View, Text } = require('react-native');
+
+  return {
+    __esModule: true,
+    QuestDetailsScreen: () =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(Text, null, 'QuestDetailsScreen'),
       ),
   };
 });
@@ -354,6 +402,7 @@ jest.mock('lucide-react-native', () => {
     FilePlus2: createIcon('FilePlus2'),
     PencilLine: createIcon('PencilLine'),
     Plus: createIcon('Plus'),
+    ScrollText: createIcon('ScrollText'),
     Settings: createIcon('Settings'),
     Settings2: createIcon('Settings2'),
     User: createIcon('User'),

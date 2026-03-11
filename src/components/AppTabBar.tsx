@@ -1,12 +1,21 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CurvedBottomBar } from 'react-native-curved-bottom-bar';
-import { Map, MapPinned, Plus, Settings, Settings2, User } from 'lucide-react-native';
+import {
+  Map,
+  MapPinned,
+  Plus,
+  ScrollText,
+  Settings,
+  Settings2,
+  User,
+} from 'lucide-react-native';
 
 import { theme, type ThemeMode } from '../theme';
 
 export type RootTabParamList = {
   Map: undefined;
+  Quests: undefined;
   Profile: undefined;
   Settings: undefined;
 };
@@ -25,6 +34,7 @@ type AppTabBarProps = {
   onCloseCreateMenu: () => void;
   onToggleCreateMenu: () => void;
   profileComponent: React.ComponentType;
+  questsComponent: React.ComponentType;
   safeAreaBottom: number;
   sceneBackgroundColor: string;
   settingsComponent: React.ComponentType;
@@ -44,6 +54,8 @@ function getTabIcon(
       return focused ? MapPinned : Map;
     case 'Profile':
       return User;
+    case 'Quests':
+      return ScrollText;
     case 'Settings':
       return focused ? Settings2 : Settings;
   }
@@ -69,6 +81,7 @@ export function AppTabBar({
   onCloseCreateMenu,
   onToggleCreateMenu,
   profileComponent,
+  questsComponent,
   safeAreaBottom,
   sceneBackgroundColor,
   settingsComponent,
@@ -168,6 +181,7 @@ export function AppTabBar({
         type="DOWN"
       >
         <CurvedBottomBarScreen component={mapComponent} name="Map" position="LEFT" />
+        <CurvedBottomBarScreen component={questsComponent} name="Quests" position="LEFT" />
         <CurvedBottomBarScreen component={profileComponent} name="Profile" position="RIGHT" />
         <CurvedBottomBarScreen component={settingsComponent} name="Settings" position="RIGHT" />
       </CurvedBottomBarNavigator>

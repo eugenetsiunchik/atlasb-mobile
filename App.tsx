@@ -25,15 +25,21 @@ import { useUserPlaceStatesSync } from './src/features/userPlace';
 import { installGlobalFirebaseErrorLogging, logFirebaseError } from './src/firebase';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
 import {
+  ActiveQuestsScreen,
   MapScreen,
   ProfileScreen,
+  QuestDetailsScreen,
   SettingsScreen,
 } from './src/screens';
 import {
   authActions,
+  selectQuestCardById,
   store,
   useAchievementEvaluation,
   useAppDispatch,
+  useAppSelector,
+  useQuestProgressEvaluation,
+  useQuestsSync,
   useUserAchievementsSync,
 } from './src/store';
 
@@ -79,6 +85,32 @@ function ProfileTabScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1">
       <ProfileScreen />
+    </SafeAreaView>
+  );
+}
+
+function QuestsTabScreen() {
+  const [selectedQuestId, setSelectedQuestId] = React.useState<string | null>(null);
+  const selectedQuest = useAppSelector(state => selectQuestCardById(state, selectedQuestId));
+
+  React.useEffect(() => {
+    if (selectedQuestId && !selectedQuest) {
+      setSelectedQuestId(null);
+    }
+  }, [selectedQuest, selectedQuestId]);
+
+  return (
+    <SafeAreaView edges={['top']} className="flex-1">
+      {selectedQuestId && selectedQuest ? (
+        <QuestDetailsScreen
+          onBack={() => {
+            setSelectedQuestId(null);
+          }}
+          questId={selectedQuestId}
+        />
+      ) : (
+        <ActiveQuestsScreen onOpenQuest={setSelectedQuestId} />
+      )}
     </SafeAreaView>
   );
 }
@@ -190,6 +222,8 @@ function AppContent() {
 
   useUserPlaceStatesSync();
   useUserAchievementsSync();
+  useQuestsSync();
+  useQuestProgressEvaluation();
   useAchievementEvaluation();
 
   return (
@@ -209,6 +243,7 @@ function AppContent() {
           onCloseCreateMenu={handleCloseCreateMenu}
           onToggleCreateMenu={handleToggleCreateMenu}
           profileComponent={ProfileTabScreen}
+          questsComponent={QuestsTabScreen}
           safeAreaBottom={safeAreaInsets.bottom}
           sceneBackgroundColor={sceneBackgroundColor}
           settingsComponent={SettingsTabScreen}

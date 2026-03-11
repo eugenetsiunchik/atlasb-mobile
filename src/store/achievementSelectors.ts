@@ -1,6 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
 
 import { selectAllMapPlaces } from '../features/map/store';
+import { selectCompletedQuestCount } from '../features/quests';
 import { selectAllUserPlaceStates } from '../features/userPlace/store';
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -24,8 +25,13 @@ export const selectUnlockedAchievementIds = createSelector(
   achievements => achievements.map(achievement => achievement.achievementId),
 );
 export const selectAchievementCards = createSelector(
-  [selectAllUnlockedAchievements, selectAllUserPlaceStates, selectAllMapPlaces],
-  (unlockedAchievements, userPlaceStates, places) => {
+  [
+    selectAllUnlockedAchievements,
+    selectAllUserPlaceStates,
+    selectAllMapPlaces,
+    selectCompletedQuestCount,
+  ],
+  (unlockedAchievements, userPlaceStates, places, completedQuestCount) => {
     const unlockedAchievementsById = new Map(
       unlockedAchievements.map(achievement => [achievement.achievementId, achievement]),
     );
@@ -33,13 +39,15 @@ export const selectAchievementCards = createSelector(
       context: buildAchievementEvaluationContext({
         placeStates: userPlaceStates,
         places,
-        stats: createDefaultAchievementStats(),
+        stats: {
+          ...createDefaultAchievementStats(),
+          completedQuestsCount: completedQuestCount,
+        },
       }),
       definitions: ACHIEVEMENT_DEFINITIONS,
       unlockedAchievementIds: unlockedAchievementsById.keys(),
     });
-
-    return evaluation.states.map(state => {
+    const configuredCards = evaluation.states.map(state => {
       const unlockedAchievement = unlockedAchievementsById.get(state.definition.id);
 
       return {
@@ -50,6 +58,31 @@ export const selectAchievementCards = createSelector(
         unlockedBy: unlockedAchievement?.unlockedBy ?? null,
       };
     });
+    const configuredIds = new Set(configuredCards.map(card => card.id));
+    const extraUnlockedCards = unlockedAchievements
+      .filter(achievement => !configuredIds.has(achievement.achievementId))
+      .sort((left, right) => right.unlockedAtMs - left.unlockedAtMs)
+      .map(achievement => ({
+        category: achievement.category,
+        configVersion: achievement.configVersion,
+        description: achievement.description,
+        evaluationMode: 'backend' as const,
+        icon: achievement.icon,
+        id: achievement.achievementId,
+        isUnlocked: true,
+        progress: {
+          complete: true,
+          current: 1,
+          label: 'Unlocked from a quest reward',
+          target: 1,
+        },
+        title: achievement.title,
+        unlockedAtMs: achievement.unlockedAtMs,
+        unlockedBy: achievement.unlockedBy,
+        xpReward: achievement.xpReward,
+      }));
+
+    return [...extraUnlockedCards, ...configuredCards];
   },
 );
 export const selectAchievementsSummary = createSelector(

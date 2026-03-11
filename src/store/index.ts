@@ -13,6 +13,7 @@ export {
 export { evaluateAchievements } from './achievementThunks';
 export { achievementsActions, achievementsReducer } from './achievementsSlice';
 export * from '../features/map/store';
+export * from '../features/quests';
 export * from '../features/userPlace/store';
 export { store } from './store';
 export type { AppDispatch, AppThunk, RootState } from './store';
