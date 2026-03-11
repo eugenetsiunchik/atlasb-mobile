@@ -2,16 +2,19 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CurvedBottomBar } from 'react-native-curved-bottom-bar';
 import {
+  FilePlus2,
   Map,
   MapPinned,
-  Plus,
+  PencilLine,
   ScrollText,
   Settings,
   Settings2,
   User,
 } from 'lucide-react-native';
 
+import { createActionOptions, runCreateAction, type CreateActionOption } from '../services/create';
 import { theme, type ThemeMode } from '../theme';
+import { CreateActionFanOut } from './CreateActionFanOut';
 
 export type RootTabParamList = {
   Map: undefined;
@@ -90,6 +93,24 @@ export function AppTabBar({
   const tabBarAccentColor = theme.tabBar.accent[themeMode];
   const tabBarBackgroundColor = theme.tabBar.background[themeMode];
   const tabBarInactiveTintColor = theme.tabBar.inactiveTint[themeMode];
+  const createActionMenuBackgroundColor = theme.createActionMenu.menuBackground[themeMode];
+  const createActionItems = React.useMemo(
+    () =>
+      createActionOptions.map(option => ({
+        accessibilityLabel: option.description,
+        icon: option.id === 'createPost' ? FilePlus2 : PencilLine,
+        id: option.id,
+      })),
+    [],
+  );
+
+  const handleSelectCreateAction = React.useCallback(
+    (option: CreateActionOption) => {
+      onCloseCreateMenu();
+      runCreateAction(option);
+    },
+    [onCloseCreateMenu],
+  );
 
   const renderCurvedTabItem = React.useCallback(
     ({
@@ -122,37 +143,8 @@ export function AppTabBar({
   );
 
   const renderCreateButton = React.useCallback(() => {
-    return (
-      <View
-        style={[
-          styles.createButtonShell,
-          {
-            backgroundColor: tabBarBackgroundColor,
-          },
-        ]}
-      >
-        <Pressable
-          accessibilityLabel={createMenuVisible ? 'Close create menu' : 'Open create menu'}
-          accessibilityRole="button"
-          onPress={onToggleCreateMenu}
-          style={[
-            styles.createButton,
-            {
-              backgroundColor: tabBarAccentColor,
-            },
-          ]}
-        >
-          <Plus color={sceneBackgroundColor} size={28} strokeWidth={2.6} />
-        </Pressable>
-      </View>
-    );
-  }, [
-    createMenuVisible,
-    onToggleCreateMenu,
-    sceneBackgroundColor,
-    tabBarAccentColor,
-    tabBarBackgroundColor,
-  ]);
+    return <View pointerEvents="none" style={styles.circlePlaceholder} />;
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -185,6 +177,29 @@ export function AppTabBar({
         <CurvedBottomBarScreen component={profileComponent} name="Profile" position="RIGHT" />
         <CurvedBottomBarScreen component={settingsComponent} name="Settings" position="RIGHT" />
       </CurvedBottomBarNavigator>
+      <CreateActionFanOut
+        accentColor={tabBarAccentColor}
+        bottomOffset={safeAreaBottom + 16}
+        iconColor={sceneBackgroundColor}
+        items={createActionItems}
+        menuBackgroundColor={createActionMenuBackgroundColor}
+        onSelect={handleSelectCreateAction}
+        onToggle={onToggleCreateMenu}
+        shellBackgroundColor={tabBarBackgroundColor}
+        visible={createMenuVisible}
+      />
+      {createMenuVisible ? (
+        <Pressable
+          accessibilityLabel="Close create menu"
+          onPress={onCloseCreateMenu}
+          style={[
+            styles.dismissOverlay,
+            {
+              bottom: safeAreaBottom + 120,
+            },
+          ]}
+        />
+      ) : null}
       {safeAreaBottom > 0 ? (
         <View
           pointerEvents="none"
@@ -212,29 +227,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  createButton: {
-    alignItems: 'center',
-    borderRadius: 34,
-    height: 56,
-    justifyContent: 'center',
-    width: 56,
+  curvedBar: {
   },
-  createButtonShell: {
-    alignItems: 'center',
-    borderRadius: 34,
-    bottom: 32,
+  circlePlaceholder: {
     height: 68,
-    justifyContent: 'center',
-    shadowColor: theme.tabBar.shellShadow,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
     width: 68,
   },
-  curvedBar: {
+  dismissOverlay: {
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 2,
   },
   safeAreaFill: {
     bottom: 0,

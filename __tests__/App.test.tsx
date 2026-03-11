@@ -6,6 +6,40 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 
+jest.mock('react-native-reanimated', () => {
+  const ReactLib = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: {
+      View: ReactLib.forwardRef((props: object, _ref: unknown) =>
+        ReactLib.createElement(View, props),
+      ),
+    },
+    Easing: {
+      cubic: jest.fn(),
+      inOut: jest.fn(() => 'inOut'),
+      out: jest.fn(() => 'out'),
+    },
+    interpolate: (
+      value: number,
+      inputRange: [number, number],
+      outputRange: [number, number],
+    ) => {
+      const [inputStart, inputEnd] = inputRange;
+      const [outputStart, outputEnd] = outputRange;
+      const progress =
+        inputEnd === inputStart ? 0 : (value - inputStart) / (inputEnd - inputStart);
+
+      return outputStart + progress * (outputEnd - outputStart);
+    },
+    useAnimatedStyle: (updater: () => object) => updater(),
+    useSharedValue: (initialValue: number) => ({ value: initialValue }),
+    withTiming: (toValue: number) => toValue,
+  };
+});
+
 jest.mock('react-redux', () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ReactLib = require('react');
@@ -131,6 +165,28 @@ jest.mock('../src/firebase', () => ({
   logFirebaseError: jest.fn(),
 }));
 
+jest.mock('react-native-permissions', () => ({
+  __esModule: true,
+  check: jest.fn(async () => 'granted'),
+  openSettings: jest.fn(async () => undefined),
+  PERMISSIONS: {
+    ANDROID: {
+      ACCESS_FINE_LOCATION: 'android.permission.ACCESS_FINE_LOCATION',
+    },
+    IOS: {
+      LOCATION_WHEN_IN_USE: 'ios.permission.LOCATION_WHEN_IN_USE',
+    },
+  },
+  request: jest.fn(async () => 'granted'),
+  RESULTS: {
+    BLOCKED: 'blocked',
+    DENIED: 'denied',
+    GRANTED: 'granted',
+    LIMITED: 'limited',
+    UNAVAILABLE: 'unavailable',
+  },
+}));
+
 jest.mock('../src/features/map/config/tileServer', () => ({
   __esModule: true,
   loadResolvedMapStyle: jest.fn(async () => ({
@@ -161,6 +217,44 @@ jest.mock('../src/features/userPlace', () => ({
   __esModule: true,
   useUserPlaceStatesSync: jest.fn(),
 }));
+
+jest.mock('../src/components/auth/AuthPromptModal', () => {
+  const ReactLib = require('react');
+  const { View, Text } = require('react-native');
+
+  return {
+    __esModule: true,
+    AuthPromptModal: () =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(Text, null, 'AuthPromptModal'),
+      ),
+  };
+});
+
+jest.mock('../src/screens', () => {
+  const ReactLib = require('react');
+  const { View, Text } = require('react-native');
+
+  const createScreen = (label: string) => () =>
+    ReactLib.createElement(
+      View,
+      null,
+      ReactLib.createElement(Text, null, label),
+    );
+
+  return {
+    __esModule: true,
+    ActiveQuestsScreen: createScreen('ActiveQuestsScreen'),
+    MapScreen: createScreen('MapScreen'),
+    ProfileScreen: createScreen('ProfileScreen'),
+    QuestDetailsScreen: createScreen('QuestDetailsScreen'),
+    SettingsScreen: createScreen('SettingsScreen'),
+    SignInScreen: createScreen('SignInScreen'),
+    SignUpScreen: createScreen('SignUpScreen'),
+  };
+});
 
 jest.mock('../src/screens/MapScreen', () => {
   const ReactLib = require('react');

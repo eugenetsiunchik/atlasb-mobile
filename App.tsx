@@ -20,7 +20,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { AppTabBar, AuthPromptModal, CreateActionMenu } from './src/components';
+import { AppTabBar, AuthPromptModal } from './src/components';
 import { useUserPlaceStatesSync } from './src/features/userPlace';
 import { installGlobalFirebaseErrorLogging, logFirebaseError } from './src/firebase';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
@@ -230,12 +230,6 @@ function AppContent() {
     <TilesHostOverrideContext.Provider value={tilesHostOverrideValue}>
       <AuthBootstrap />
       <NavigationContainer theme={navigationTheme}>
-        <CreateActionMenu
-          bottomOffset={safeAreaInsets.bottom + 90}
-          isDarkMode={isDarkMode}
-          onClose={handleCloseCreateMenu}
-          visible={createMenuVisible}
-        />
         <AppTabBar
           createMenuVisible={createMenuVisible}
           isDarkMode={isDarkMode}
