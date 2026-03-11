@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Badge, Card } from '../components';
 import {
@@ -14,6 +15,7 @@ import {
   useAppSelector,
   selectIsAuthenticated,
 } from '../store';
+import { getBottomTabContentPadding } from '../utils';
 
 type ActiveQuestsScreenProps = {
   onOpenQuest: (questId: string) => void;
@@ -72,6 +74,7 @@ function QuestCard({
 }
 
 export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
+  const { bottom } = useSafeAreaInsets();
   const questsStatus = useAppSelector(selectQuestsStatus);
   const questsError = useAppSelector(selectQuestsError);
   const progressStatus = useAppSelector(selectQuestProgressStatus);
@@ -84,7 +87,10 @@ export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
   return (
     <ScrollView
       className="flex-1"
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        { paddingBottom: getBottomTabContentPadding(bottom) },
+      ]}
     >
       <View className="gap-1">
         <AppText variant="sectionTitle">Quests</AppText>
@@ -174,6 +180,5 @@ const styles = StyleSheet.create({
   contentContainer: {
     gap: 16,
     padding: 16,
-    paddingBottom: 32,
   },
 });

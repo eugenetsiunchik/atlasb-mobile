@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Badge, Card } from '../components';
 import {
@@ -9,6 +10,7 @@ import {
   selectQuestCardById,
   useAppSelector,
 } from '../store';
+import { getBottomTabContentPadding } from '../utils';
 
 type QuestDetailsScreenProps = {
   onBack: () => void;
@@ -24,6 +26,7 @@ function formatCompletedAt(value: number | null) {
 }
 
 export function QuestDetailsScreen({ onBack, questId }: QuestDetailsScreenProps) {
+  const { bottom } = useSafeAreaInsets();
   const quest = useAppSelector(state => selectQuestCardById(state, questId));
   const places = useAppSelector(selectAllMapPlaces);
 
@@ -56,7 +59,10 @@ export function QuestDetailsScreen({ onBack, questId }: QuestDetailsScreenProps)
   return (
     <ScrollView
       className="flex-1"
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        { paddingBottom: getBottomTabContentPadding(bottom) },
+      ]}
     >
       <Pressable onPress={onBack}>
         <AppText tone="accent" variant="label">
@@ -157,6 +163,5 @@ const styles = StyleSheet.create({
   contentContainer: {
     gap: 16,
     padding: 16,
-    paddingBottom: 32,
   },
 });

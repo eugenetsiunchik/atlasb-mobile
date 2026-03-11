@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, AuthButton, Badge, Card, ProfileAchievementsSection } from '../components';
 import { requireAuthForAction } from '../services/auth';
@@ -13,6 +14,7 @@ import {
   useAppDispatch,
   useAppSelector,
 } from '../store';
+import { getBottomTabContentPadding } from '../utils';
 
 function formatCreatedAt(value: Date | null) {
   if (!value) {
@@ -23,6 +25,7 @@ function formatCreatedAt(value: Date | null) {
 }
 
 export function ProfileScreen() {
+  const { bottom } = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const authInitializing = useAppSelector(selectAuthInitializing);
   const currentUser = useAppSelector(selectCurrentUser);
@@ -114,7 +117,10 @@ export function ProfileScreen() {
   return (
     <ScrollView
       className="flex-1"
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        { paddingBottom: getBottomTabContentPadding(bottom) },
+      ]}
     >
       <View className="gap-1">
         <AppText variant="sectionTitle">Profile</AppText>
@@ -178,6 +184,5 @@ const styles = StyleSheet.create({
   contentContainer: {
     gap: 16,
     padding: 16,
-    paddingBottom: 32,
   },
 });
