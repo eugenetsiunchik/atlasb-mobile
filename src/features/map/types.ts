@@ -2,20 +2,29 @@ export type MapLocationPermission =
   | 'unknown'
   | 'requested'
   | 'granted'
-  | 'denied';
+  | 'denied'
+  | 'blocked'
+  | 'unavailable';
 
 export type MapCoordinate = {
   latitude: number;
   longitude: number;
 };
 
+export type MapUserLocation = MapCoordinate & {
+  accuracyMeters: number | null;
+  capturedAtMs: number;
+};
+
 export type PlaceMapItem = {
+  allowManualVisitMarking: boolean;
   id: string;
   imageUrl: string | null;
   latitude: number;
   longitude: number;
   name: string;
   region: string;
+  visitVerificationRadiusMeters: number;
 };
 
 export type MapFilters = {

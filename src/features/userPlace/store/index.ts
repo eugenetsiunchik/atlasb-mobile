@@ -7,7 +7,7 @@ export {
   selectUserPlaceStatesStatus,
   makeSelectResolvedUserPlaceState,
 } from './userPlaceStateSelectors';
-export { runUserPlaceMutation } from './userPlaceStateThunks';
+export { runUserPlaceMutation, runVisitCheckIn } from './userPlaceStateThunks';
 export {
   userPlaceStatesActions,
   userPlaceStatesReducer,

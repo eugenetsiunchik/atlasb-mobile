@@ -1,19 +1,21 @@
 import {
   evaluateQuestProgress,
   hasQuestProgressChanged,
-} from '../src/features/quests/progressHelpers';
-import type { QuestDefinition, UserQuestProgress } from '../src/features/quests/types';
+} from '../src/features/quests';
+import type { QuestDefinition, UserQuestProgress } from '../src/features/quests';
 import type { PlaceMapItem } from '../src/features/map/types';
-import type { UserPlaceState } from '../src/features/userPlace/types';
+import type { UserPlaceState } from '../src/features/userPlace';
 
 function createPlace(id: string, name: string, region: string): PlaceMapItem {
   return {
+    allowManualVisitMarking: false,
     id,
     imageUrl: null,
     latitude: 0,
     longitude: 0,
     name,
     region,
+    visitVerificationRadiusMeters: 150,
   };
 }
 
@@ -31,6 +33,11 @@ function createPlaceState(params: {
     saved: false,
     savedAtMs: null,
     updatedAtMs: 1,
+    visitCoordinates: null,
+    visitDistanceMeters: null,
+    visitMethod: null,
+    visitRadiusMeters: null,
+    visitVerified: null,
     visited: params.visited ?? false,
     visitedAtMs: params.visited ? 1 : null,
   };

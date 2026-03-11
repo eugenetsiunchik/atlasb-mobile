@@ -2,10 +2,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
-  PermissionsAndroid,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,7 +12,9 @@ import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlacePreviewCard } from '../features/map/components/PlacePreviewCard';
+import { PlaceDetailsSheet } from '../features/map/components/PlaceDetailsSheet';
 import { loadResolvedMapStyle } from '../features/map/config/tileServer';
+import { requestLocationPermission } from '../features/map/services/locationPermissionService';
 import { subscribeToPlaces } from '../features/map/services/placesService';
 import { logFirebaseError } from '../firebase';
 import {
@@ -72,18 +71,25 @@ function getCoordinateFromLocationEvent(location: unknown) {
 
   const candidate = location as {
     coords?: {
+      accuracy?: number;
       latitude?: number;
       longitude?: number;
     };
+    timestamp?: number;
     latitude?: number;
     longitude?: number;
   };
 
+  const accuracyMeters = candidate.coords?.accuracy;
   const latitude = candidate.coords?.latitude ?? candidate.latitude;
   const longitude = candidate.coords?.longitude ?? candidate.longitude;
+  const capturedAtMs =
+    typeof candidate.timestamp === 'number' ? candidate.timestamp : Date.now();
 
   return typeof latitude === 'number' && typeof longitude === 'number'
     ? {
+        accuracyMeters: typeof accuracyMeters === 'number' ? accuracyMeters : null,
+        capturedAtMs,
         latitude,
         longitude,
       }
@@ -238,37 +244,23 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
   );
 
   const ensureLocationPermission = React.useCallback(async () => {
-    if (Platform.OS !== 'android') {
-      dispatch(mapActions.locationPermissionSet('requested'));
-      return true;
-    }
-
     dispatch(mapActions.locationPermissionSet('requested'));
-
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        buttonNegative: 'Not now',
-        buttonPositive: 'Allow',
-        message: 'AtlasB uses your location to center the map near you.',
-        title: 'Allow location access',
-      },
-    );
-
-    const granted = result === PermissionsAndroid.RESULTS.GRANTED;
-
-    dispatch(mapActions.locationPermissionSet(granted ? 'granted' : 'denied'));
-
-    return granted;
+    const permission = await requestLocationPermission();
+    dispatch(mapActions.locationPermissionSet(permission));
+    return permission;
   }, [dispatch]);
 
   const handleNearMePress = React.useCallback(async () => {
-    const granted = await ensureLocationPermission();
+    const permission = await ensureLocationPermission();
 
-    if (!granted) {
+    if (permission !== 'granted') {
       Alert.alert(
         'Location unavailable',
-        'Grant location permission to jump to your current position.',
+        permission === 'blocked'
+          ? 'Location access is blocked for AtlasB. Open the app settings and allow location to jump to your current position.'
+          : permission === 'unavailable'
+            ? 'Location services are unavailable on this device right now.'
+            : 'Grant location permission to jump to your current position.',
       );
       return;
     }
@@ -389,11 +381,12 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
         </View>
       )}
 
-      {locationPermission === 'denied' && (
+      {(locationPermission === 'denied' || locationPermission === 'blocked') && (
         <View className="absolute inset-x-4 top-[21rem] rounded-2xl bg-slate-900/92 px-4 py-3">
           <Text className="text-sm text-slate-200">
-            Location permission is off. The map still works, but &quot;Near me&quot; and
-            the user location puck need access.
+            {locationPermission === 'blocked'
+              ? 'Location permission is blocked in system settings. The map still works, but "Near me" and the user location puck need access.'
+              : 'Location permission is off. The map still works, but "Near me" and the user location puck need access.'}
           </Text>
         </View>
       )}
@@ -419,43 +412,14 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
         visible={isDetailsVisible && !!selectedPlace}
       >
         <View className="flex-1 justify-end bg-slate-950/65">
-          <View
-            className="rounded-t-3xl bg-slate-950 px-4 pb-8 pt-4"
-            style={{ paddingBottom: insets.bottom + 24 }}
-          >
-            <View className="mb-4 h-1.5 w-12 self-center rounded-full bg-slate-700" />
-            {selectedPlace?.imageUrl ? (
-              <Image
-                source={{ uri: selectedPlace.imageUrl }}
-                className="h-56 w-full rounded-3xl"
-                resizeMode="cover"
+          {selectedPlace ? (
+            <View style={{ paddingBottom: insets.bottom + 24 }}>
+              <PlaceDetailsSheet
+                onClose={() => setIsDetailsVisible(false)}
+                place={selectedPlace}
               />
-            ) : (
-              <View className="h-56 w-full items-center justify-center rounded-3xl bg-slate-800">
-                <Text className="text-sm font-medium text-slate-300">
-                  No preview image
-                </Text>
-              </View>
-            )}
-            <Text className="mt-4 text-2xl font-semibold text-white">
-              {selectedPlace?.name}
-            </Text>
-            <Text className="mt-1 text-base text-slate-300">
-              {selectedPlace?.region}
-            </Text>
-            <Text className="mt-4 text-sm leading-6 text-slate-300">
-              This modal is the hand-off point for a future place details screen or
-              nested map stack route.
-            </Text>
-            <Pressable
-              className="mt-6 rounded-2xl bg-amber-400 px-4 py-3"
-              onPress={() => setIsDetailsVisible(false)}
-            >
-              <Text className="text-center text-base font-semibold text-slate-950">
-                Close details
-              </Text>
-            </Pressable>
-          </View>
+            </View>
+          ) : null}
         </View>
       </Modal>
     </View>

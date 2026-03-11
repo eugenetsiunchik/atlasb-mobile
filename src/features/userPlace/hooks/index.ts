@@ -123,3 +123,5 @@ export function useMarkVisited(placeId: string) {
     [isPending, requiresAuth, runMutation],
   );
 }
+
+export { usePlaceVisitCheckIn } from './usePlaceVisitCheckIn';

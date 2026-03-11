@@ -1,11 +1,13 @@
 export {
   useMarkVisited,
+  usePlaceVisitCheckIn,
   useToggleSavePlace,
   useUserPlaceState,
   useUserPlaceStatesSync,
 } from './hooks';
 export {
   runUserPlaceMutation,
+  runVisitCheckIn,
   selectAllUserPlaceStates,
   selectIsUserPlaceMutationPendingForPlace,
   selectUserPlaceStateById,
@@ -19,8 +21,12 @@ export {
   createEmptyUserPlaceState,
   hasPersistedUserPlaceState,
   type FirestoreUserPlaceState,
+  type FirestoreVisitCoordinates,
   type UserPlaceMutation,
   type UserPlaceMutationResult,
   type UserPlaceState,
+  type UserPlaceVisitRecord,
   type UserPlaceWriteAction,
+  type VisitCoordinates,
+  type VisitMethod,
 } from './types';

@@ -5,9 +5,9 @@ import {
 } from '@reduxjs/toolkit';
 
 import type {
-  MapCoordinate,
   MapFilters,
   MapLocationPermission,
+  MapUserLocation,
   PlaceMapItem,
 } from '../types';
 
@@ -26,7 +26,7 @@ function createInitialState() {
     locationPermission: 'unknown' as MapLocationPermission,
     placesStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
     selectedPlaceId: null as string | null,
-    userLocation: null as MapCoordinate | null,
+    userLocation: null as MapUserLocation | null,
   });
 }
 
@@ -39,6 +39,10 @@ export const mapSlice = createSlice({
         ...state.filters,
         ...action.payload,
       };
+    },
+    locationPermissionReset(state) {
+      state.locationPermission = 'unknown';
+      state.userLocation = null;
     },
     locationPermissionSet(
       state,
@@ -72,7 +76,7 @@ export const mapSlice = createSlice({
         state.selectedPlaceId = null;
       }
     },
-    userLocationUpdated(state, action: PayloadAction<MapCoordinate>) {
+    userLocationUpdated(state, action: PayloadAction<MapUserLocation>) {
       state.locationPermission = 'granted';
       state.userLocation = action.payload;
     },

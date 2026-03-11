@@ -4,16 +4,18 @@ import {
   evaluateAchievementDefinitions,
 } from '../src/services/gamification';
 import type { PlaceMapItem } from '../src/features/map/types';
-import type { UserPlaceState } from '../src/features/userPlace/types';
+import type { UserPlaceState } from '../src/features/userPlace';
 
 function createPlace(id: string, region: string): PlaceMapItem {
   return {
+    allowManualVisitMarking: false,
     id,
     imageUrl: null,
     latitude: 0,
     longitude: 0,
     name: id,
     region,
+    visitVerificationRadiusMeters: 150,
   };
 }
 
@@ -32,6 +34,11 @@ function createPlaceState(params: {
     saved: false,
     savedAtMs: null,
     updatedAtMs: Date.now(),
+    visitCoordinates: null,
+    visitDistanceMeters: null,
+    visitMethod: null,
+    visitRadiusMeters: null,
+    visitVerified: null,
     visited: params.visited ?? false,
     visitedAtMs: params.visited ? Date.now() : null,
   };

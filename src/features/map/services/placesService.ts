@@ -16,6 +16,7 @@ import type { MapCoordinate, MapFilters, PlaceMapItem } from '../types';
 
 const PLACES_COLLECTION_NAME = 'places';
 const ACTIVE_PLACE_STATUS = 'active';
+const DEFAULT_VISIT_VERIFICATION_RADIUS_METERS = 150;
 
 type FirestoreGeoPointLike = {
   latitude: number;
@@ -89,6 +90,20 @@ function normalizePlace(
       : typeof data.image === 'string' && data.image.trim()
         ? data.image.trim()
         : null;
+  const allowManualVisitMarking =
+    data.allowManualVisitMarking === true || data.manualVisitAllowed === true;
+  const visitVerificationRadiusMetersCandidate =
+    typeof data.visitVerificationRadiusMeters === 'number'
+      ? data.visitVerificationRadiusMeters
+      : typeof data.visitRadiusMeters === 'number'
+        ? data.visitRadiusMeters
+        : null;
+  const visitVerificationRadiusMeters =
+    typeof visitVerificationRadiusMetersCandidate === 'number' &&
+    Number.isFinite(visitVerificationRadiusMetersCandidate) &&
+    visitVerificationRadiusMetersCandidate > 0
+      ? visitVerificationRadiusMetersCandidate
+      : DEFAULT_VISIT_VERIFICATION_RADIUS_METERS;
 
   if (!coordinate || !name || !region) {
     return null;
@@ -101,6 +116,8 @@ function normalizePlace(
     longitude: coordinate.longitude,
     name,
     region,
+    allowManualVisitMarking,
+    visitVerificationRadiusMeters,
   };
 }
 

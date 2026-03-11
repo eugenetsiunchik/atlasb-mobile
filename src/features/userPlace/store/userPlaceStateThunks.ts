@@ -5,6 +5,7 @@ import {
   type UserPlaceMutation,
   type UserPlaceMutationResult,
   type UserPlaceState,
+  type UserPlaceVisitRecord,
   type UserPlaceWriteAction,
 } from '../types';
 import {
@@ -107,6 +108,55 @@ function resolveTransition(params: {
   }
 }
 
+async function commitUserPlaceTransition(params: {
+  currentState: UserPlaceState;
+  dispatch: (action: unknown) => unknown;
+  placeId: string;
+  transition: UserPlaceTransition;
+  uid: string;
+}): Promise<UserPlaceMutationResult> {
+  const { currentState, dispatch, placeId, transition, uid } = params;
+  const requestId = createUserPlaceMutationRequestId();
+  const previousState = hasPersistedUserPlaceState(currentState) ? currentState : null;
+
+  dispatch(
+    userPlaceStatesActions.userPlaceMutationOptimisticallyApplied({
+      nextState: transition.nextState,
+      placeId,
+      previousState,
+      requestId,
+    }),
+  );
+
+  try {
+    await applyUserPlaceWriteAction({
+      action: transition.action,
+      nextState: transition.nextState,
+      placeId,
+      previousState: currentState,
+      uid,
+    });
+
+    dispatch(userPlaceStatesActions.userPlaceMutationCommitted({ requestId }));
+
+    return { status: 'fulfilled' };
+  } catch (error) {
+    dispatch(
+      userPlaceStatesActions.userPlaceMutationReverted({
+        errorMessage:
+          error instanceof Error ? error.message : 'Unable to update your place state.',
+        requestId,
+      }),
+    );
+
+    return {
+      errorMessage:
+        error instanceof Error ? error.message : 'Unable to update your place state.',
+      status: 'rejected',
+    };
+  }
+}
+
 export const runUserPlaceMutation =
   (params: {
     mutation: UserPlaceMutation;
@@ -144,47 +194,66 @@ export const runUserPlaceMutation =
       };
     }
 
-    const requestId = createUserPlaceMutationRequestId();
-    const previousState = hasPersistedUserPlaceState(currentState) ? currentState : null;
+    return commitUserPlaceTransition({
+      currentState,
+      dispatch,
+      placeId,
+      transition,
+      uid: currentUser.uid,
+    });
+  };
 
-    dispatch(
-      userPlaceStatesActions.userPlaceMutationOptimisticallyApplied({
-        nextState: transition.nextState,
-        placeId,
-        previousState,
-        requestId,
-      }),
-    );
+export const runVisitCheckIn =
+  (params: {
+    placeId: string;
+    visitRecord: UserPlaceVisitRecord;
+  }): AppThunk<Promise<UserPlaceMutationResult>> =>
+  async (dispatch, getState) => {
+    const { placeId, visitRecord } = params;
+    const state = getState();
+    const currentUser = selectCurrentUser(state);
 
-    try {
-      await applyUserPlaceWriteAction({
-        action: transition.action,
-        nextState: transition.nextState,
-        placeId,
-        previousState: currentState,
-        uid: currentUser.uid,
-      });
-
-      dispatch(userPlaceStatesActions.userPlaceMutationCommitted({ requestId }));
-
-      return { status: 'fulfilled' };
-    } catch (error) {
-      dispatch(
-        userPlaceStatesActions.userPlaceMutationReverted({
-          errorMessage:
-            error instanceof Error
-              ? error.message
-              : 'Unable to update your place state.',
-          requestId,
-        }),
-      );
-
+    if (!currentUser) {
       return {
-        errorMessage:
-          error instanceof Error
-            ? error.message
-            : 'Unable to update your place state.',
-        status: 'rejected',
+        reason: 'auth-required',
+        status: 'skipped',
       };
     }
+
+    if (selectIsUserPlaceMutationPendingForPlace(state, placeId)) {
+      return {
+        reason: 'pending',
+        status: 'skipped',
+      };
+    }
+
+    const currentState = resolveCurrentUserPlaceState(state, placeId);
+
+    if (currentState.visited) {
+      return {
+        reason: 'noop',
+        status: 'skipped',
+      };
+    }
+
+    return commitUserPlaceTransition({
+      currentState,
+      dispatch,
+      placeId,
+      transition: {
+        action: 'markVisited',
+        nextState: {
+          ...currentState,
+          updatedAtMs: Date.now(),
+          visitCoordinates: visitRecord.coordinates,
+          visitDistanceMeters: visitRecord.distanceMeters,
+          visitMethod: visitRecord.method,
+          visitRadiusMeters: visitRecord.radiusMeters,
+          visitVerified: visitRecord.verified,
+          visited: true,
+          visitedAtMs: Date.now(),
+        },
+      },
+      uid: currentUser.uid,
+    });
   };

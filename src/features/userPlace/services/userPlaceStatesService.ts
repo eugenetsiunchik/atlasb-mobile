@@ -21,6 +21,7 @@ import {
   type FirestoreUserPlaceState,
   type UserPlaceState,
   type UserPlaceWriteAction,
+  type VisitCoordinates,
 } from '../types';
 
 const USERS_COLLECTION_NAME = 'users';
@@ -49,6 +50,31 @@ function readTimestampMs(value: unknown) {
   return null;
 }
 
+function readVisitCoordinates(value: unknown): VisitCoordinates | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const candidate = value as {
+    accuracyMeters?: unknown;
+    capturedAtMs?: unknown;
+    latitude?: unknown;
+    longitude?: unknown;
+  };
+
+  return typeof candidate.latitude === 'number' &&
+    typeof candidate.longitude === 'number' &&
+    typeof candidate.capturedAtMs === 'number'
+    ? {
+        accuracyMeters:
+          typeof candidate.accuracyMeters === 'number' ? candidate.accuracyMeters : null,
+        capturedAtMs: candidate.capturedAtMs,
+        latitude: candidate.latitude,
+        longitude: candidate.longitude,
+      }
+    : null;
+}
+
 function normalizeUserPlaceState(
   documentSnapshot: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>,
 ): UserPlaceState {
@@ -72,6 +98,15 @@ function normalizeUserPlaceState(
     saved: data.saved === true,
     savedAtMs: readTimestampMs(data.savedAt),
     updatedAtMs: readTimestampMs(data.updatedAt),
+    visitCoordinates: readVisitCoordinates(data.visitCoordinates),
+    visitDistanceMeters:
+      typeof data.visitDistanceMeters === 'number' ? data.visitDistanceMeters : null,
+    visitMethod: data.visitMethod === 'gps' || data.visitMethod === 'manual'
+      ? data.visitMethod
+      : null,
+    visitRadiusMeters:
+      typeof data.visitRadiusMeters === 'number' ? data.visitRadiusMeters : null,
+    visitVerified: typeof data.visitVerified === 'boolean' ? data.visitVerified : null,
     visited: data.visited === true,
     visitedAtMs: readTimestampMs(data.visitedAt),
   };
@@ -174,6 +209,18 @@ export async function applyUserPlaceWriteAction(params: {
     case 'markVisited':
       payload.visited = true;
       payload.visitedAt = serverTimestamp();
+      payload.visitCoordinates = nextState.visitCoordinates
+        ? {
+            accuracyMeters: nextState.visitCoordinates.accuracyMeters,
+            capturedAtMs: nextState.visitCoordinates.capturedAtMs,
+            latitude: nextState.visitCoordinates.latitude,
+            longitude: nextState.visitCoordinates.longitude,
+          }
+        : null;
+      payload.visitDistanceMeters = nextState.visitDistanceMeters;
+      payload.visitMethod = nextState.visitMethod;
+      payload.visitRadiusMeters = nextState.visitRadiusMeters;
+      payload.visitVerified = nextState.visitVerified;
       break;
     case 'markCollected':
       payload.collected = true;
