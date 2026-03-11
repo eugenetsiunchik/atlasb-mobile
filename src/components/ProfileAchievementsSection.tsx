@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import {
   Camera,
   Compass,
@@ -9,6 +9,7 @@ import {
   Trophy,
 } from 'lucide-react-native';
 
+import { AppText, Card } from './';
 import {
   selectAchievementCards,
   selectAchievementsSummary,
@@ -56,49 +57,54 @@ export function ProfileAchievementsSection() {
   const achievementCards = useAppSelector(selectAchievementCards);
 
   return (
-    <View className="gap-4 rounded-3xl border border-neutral-200 bg-white p-5">
+    <Card className="gap-4">
       <View className="gap-1">
-        <Text className="text-lg font-semibold text-neutral-950">Achievements</Text>
-        <Text className="text-sm leading-5 text-neutral-500">
+        <AppText variant="heading">Achievements</AppText>
+        <AppText tone="muted">
           Config-driven milestones that can be unlocked on-device now and by Firebase
           Functions later.
-        </Text>
+        </AppText>
       </View>
 
       <View className="flex-row gap-3">
-        <View className="flex-1 rounded-2xl bg-amber-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-amber-700">Unlocked</Text>
-          <Text className="mt-1 text-xl font-bold text-amber-950">
+        <Card className="flex-1 rounded-2xl p-4" variant="warning">
+          <AppText className="text-amber-700" variant="caption">
+            UNLOCKED
+          </AppText>
+          <AppText className="mt-1 text-amber-950" variant="stat">
             {summary.unlockedCount}/{summary.totalCount}
-          </Text>
-        </View>
-        <View className="flex-1 rounded-2xl bg-sky-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-sky-700">Achievement XP</Text>
-          <Text className="mt-1 text-xl font-bold text-sky-950">+{summary.earnedXp}</Text>
-        </View>
+          </AppText>
+        </Card>
+        <Card className="flex-1 rounded-2xl p-4" variant="info">
+          <AppText className="text-sky-700" variant="caption">
+            ACHIEVEMENT XP
+          </AppText>
+          <AppText className="mt-1 text-sky-950" variant="stat">
+            +{summary.earnedXp}
+          </AppText>
+        </Card>
       </View>
 
       {summary.nextLockedAchievement ? (
-        <View className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-neutral-500">Next up</Text>
-          <Text className="mt-1 text-sm font-semibold text-neutral-950">
+        <Card className="rounded-2xl p-4" variant="dashed">
+          <AppText tone="subtle" variant="caption">
+            NEXT UP
+          </AppText>
+          <AppText className="mt-1" variant="label">
             {summary.nextLockedAchievement.title}
-          </Text>
-          <Text className="mt-1 text-sm text-neutral-500">
+          </AppText>
+          <AppText className="mt-1" tone="muted">
             {summary.nextLockedAchievement.progress.label}
-          </Text>
-        </View>
+          </AppText>
+        </Card>
       ) : null}
 
       <View className="gap-3">
         {achievementCards.map(card => (
-          <View
+          <Card
             key={card.id}
-            className={`rounded-2xl border p-4 ${
-              card.isUnlocked
-                ? 'border-amber-200 bg-amber-50'
-                : 'border-neutral-200 bg-neutral-50'
-            }`}
+            className="rounded-2xl p-4"
+            variant={card.isUnlocked ? 'warning' : 'muted'}
           >
             <View className="flex-row items-start gap-3">
               <View
@@ -110,28 +116,29 @@ export function ProfileAchievementsSection() {
               </View>
               <View className="flex-1 gap-1">
                 <View className="flex-row items-center justify-between gap-3">
-                  <Text className="flex-1 text-base font-semibold text-neutral-950">
+                  <AppText className="flex-1" variant="heading">
                     {card.title}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     className={`text-xs font-semibold uppercase tracking-wide ${
                       card.isUnlocked ? 'text-amber-700' : 'text-neutral-500'
                     }`}
+                    variant="caption"
                   >
                     +{card.xpReward} XP
-                  </Text>
+                  </AppText>
                 </View>
-                <Text className="text-sm leading-5 text-neutral-600">{card.description}</Text>
-                <Text className="text-xs text-neutral-500">
+                <AppText className="text-foreground-muted">{card.description}</AppText>
+                <AppText tone="muted" variant="caption">
                   {card.isUnlocked
                     ? `Unlocked ${formatUnlockedAt(card.unlockedAtMs)}`
                     : card.progress.label}
-                </Text>
+                </AppText>
               </View>
             </View>
-          </View>
+          </Card>
         ))}
       </View>
-    </View>
+    </Card>
   );
 }

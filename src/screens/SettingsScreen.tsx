@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 
+import { AppText, Card, Input } from '../components';
 import { activeMapEnvironment } from '../config/activeMapEnvironment';
 import { getLocalTileHost } from '../utils/localTiles';
 
@@ -18,39 +19,37 @@ export function SettingsScreen({
 
   return (
     <View className="flex-1 gap-3 p-4">
-      <Text className="text-[22px] font-bold text-neutral-900">Settings</Text>
-      <Text className="text-sm text-neutral-500">
+      <AppText variant="sectionTitle">Settings</AppText>
+      <AppText tone="muted">
         Configure how the local vector tile map connects during development.
-      </Text>
+      </AppText>
 
-      <View className="gap-2 rounded-2xl border border-neutral-300 bg-white p-4">
-        <Text className="text-base font-semibold text-gray-900">Tiles</Text>
-        <Text className="text-xs font-semibold text-neutral-700">Tiles host</Text>
-        <TextInput
-          value={tilesHostOverride}
+      <Card className="gap-3 rounded-[28px] px-4 py-4">
+        <AppText variant="heading">Tiles</AppText>
+        <Input
+          inputClassName="rounded-xl px-3 py-2 text-sm"
+          keyboardType="url"
+          label="Tiles host"
           onChangeText={onTilesHostOverrideChange}
           placeholder={detectedHost ?? '192.168.x.x'}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          className="rounded-xl border border-neutral-300 px-3 py-2 text-sm text-neutral-900"
-          placeholderTextColor="#9ca3af"
+          size="sm"
+          value={tilesHostOverride}
         />
-        <Text className="text-xs text-neutral-500">
+        <AppText variant="caption" tone="muted">
           Leave empty to use the detected host automatically.
-        </Text>
-        <Text className="text-xs text-neutral-700">
+        </AppText>
+        <AppText variant="caption">
           Active environment: {activeMapEnvironment.name}
-        </Text>
-        <Text className="text-xs text-neutral-700">
+        </AppText>
+        <AppText variant="caption">
           Current host: {usingAutoHost ? detectedHost ?? 'not detected' : tilesHostOverride.trim()}
-        </Text>
+        </AppText>
         {activeMapEnvironment.baseUrl ? (
-          <Text className="text-xs text-neutral-700">
+          <AppText variant="caption">
             Base URL: {activeMapEnvironment.baseUrl}
-          </Text>
+          </AppText>
         ) : null}
-      </View>
+      </Card>
     </View>
   );
 }

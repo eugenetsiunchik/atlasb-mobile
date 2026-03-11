@@ -72,7 +72,7 @@ function SettingsTabScreen() {
   const { tilesHostOverride, setTilesHostOverride } = useTilesHostOverride();
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1">
+    <SafeAreaView edges={['top']} className="flex-1 bg-background">
       <SettingsScreen
         tilesHostOverride={tilesHostOverride}
         onTilesHostOverrideChange={setTilesHostOverride}
@@ -83,7 +83,7 @@ function SettingsTabScreen() {
 
 function ProfileTabScreen() {
   return (
-    <SafeAreaView edges={['top']} className="flex-1">
+    <SafeAreaView edges={['top']} className="flex-1 bg-background">
       <ProfileScreen />
     </SafeAreaView>
   );
@@ -100,7 +100,7 @@ function QuestsTabScreen() {
   }, [selectedQuest, selectedQuestId]);
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1">
+    <SafeAreaView edges={['top']} className="flex-1 bg-background">
       {selectedQuestId && selectedQuest ? (
         <QuestDetailsScreen
           onBack={() => {

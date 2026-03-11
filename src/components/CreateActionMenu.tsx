@@ -113,6 +113,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuCard: {
+    borderColor: theme.colors.border,
+    borderWidth: 1,
     borderRadius: 24,
     maxWidth: 260,
     minWidth: 232,
@@ -121,6 +123,7 @@ const styles = StyleSheet.create({
   },
   menuDark: {
     backgroundColor: theme.createActionMenu.menuBackground.dark,
+    borderColor: 'rgba(148, 163, 184, 0.22)',
   },
   menuLight: {
     backgroundColor: theme.createActionMenu.menuBackground.light,

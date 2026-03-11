@@ -1,7 +1,7 @@
 import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { AuthButton, ProfileAchievementsSection } from '../components';
+import { AppText, AuthButton, Badge, Card, ProfileAchievementsSection } from '../components';
 import { requireAuthForAction } from '../services/auth';
 import {
   authActions,
@@ -61,21 +61,19 @@ export function ProfileScreen() {
     return (
       <View className="flex-1 gap-4 p-4">
         <View className="gap-1">
-          <Text className="text-[22px] font-bold text-neutral-900">Profile</Text>
-          <Text className="text-sm text-neutral-500">
+          <AppText variant="sectionTitle">Profile</AppText>
+          <AppText tone="muted">
             Browse as a guest by default. Sign in only when you want persistent features.
-          </Text>
+          </AppText>
         </View>
 
-        <View className="gap-4 rounded-3xl border border-neutral-200 bg-white p-5">
+        <Card className="gap-4">
           <View className="gap-1">
-            <Text className="text-lg font-semibold text-neutral-950">
-              Continue as guest
-            </Text>
-            <Text className="text-sm leading-5 text-neutral-500">
+            <AppText variant="heading">Continue as guest</AppText>
+            <AppText tone="muted">
               Maps and browsing stay open to everyone. Posting, edit suggestions, and saved
               progress require an account.
-            </Text>
+            </AppText>
           </View>
 
           <View className="gap-3">
@@ -86,24 +84,25 @@ export function ProfileScreen() {
               variant="secondary"
             />
           </View>
-        </View>
+        </Card>
 
-        <View className="gap-3 rounded-3xl border border-dashed border-neutral-300 bg-neutral-50 p-5">
-          <Text className="text-base font-semibold text-neutral-950">
-            Persistent profile features
-          </Text>
-          <Text className="text-sm leading-5 text-neutral-500">
+        <Card className="gap-3" variant="dashed">
+          <Badge label="Optional" variant="muted" />
+          <AppText variant="heading">Persistent profile features</AppText>
+          <AppText tone="muted">
             Save your identity, level, and progress only when you decide to authenticate.
-          </Text>
+          </AppText>
           <AuthButton
             label="Unlock profile features"
             onPress={handleProtectedProfileFeature}
             variant="ghost"
           />
-        </View>
+        </Card>
 
         {authInitializing ? (
-          <Text className="text-xs text-neutral-400">Checking your saved auth state...</Text>
+          <AppText className="text-slate-400" variant="caption">
+            Checking your saved auth state...
+          </AppText>
         ) : null}
       </View>
     );
@@ -115,60 +114,70 @@ export function ProfileScreen() {
   return (
     <ScrollView
       className="flex-1"
-      contentContainerStyle={{
-        gap: 16,
-        padding: 16,
-        paddingBottom: 32,
-      }}
+      contentContainerStyle={styles.contentContainer}
     >
       <View className="gap-1">
-        <Text className="text-[22px] font-bold text-neutral-900">Profile</Text>
-        <Text className="text-sm text-neutral-500">
+        <AppText variant="sectionTitle">Profile</AppText>
+        <AppText tone="muted">
           Your account is active, but the rest of the app still stays guest-friendly.
-        </Text>
+        </AppText>
       </View>
 
-      <View className="gap-4 rounded-3xl border border-neutral-200 bg-white p-5">
+      <Card className="gap-4">
         <View className="flex-row items-center gap-4">
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-sky-100">
-            <Text className="text-xl font-bold text-sky-800">{profileInitial}</Text>
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-accent/30">
+            <AppText className="text-accent-strong" variant="stat">
+              {profileInitial}
+            </AppText>
           </View>
           <View className="flex-1 gap-1">
-            <Text className="text-lg font-semibold text-neutral-950">
+            <AppText variant="heading">
               {profile?.displayName || currentUser?.displayName || 'Atlasb user'}
-            </Text>
-            <Text className="text-sm text-neutral-500">
+            </AppText>
+            <AppText tone="muted">
               {currentUser?.email || 'Signed in'}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         <View className="flex-row gap-3">
-          <View className="flex-1 rounded-2xl bg-neutral-100 p-4">
-            <Text className="text-xs uppercase tracking-wide text-neutral-500">Level</Text>
-            <Text className="mt-1 text-xl font-bold text-neutral-950">
+          <Card className="flex-1 rounded-2xl p-4" variant="muted">
+            <AppText tone="subtle" variant="caption">
+              LEVEL
+            </AppText>
+            <AppText className="mt-1" variant="stat">
               {profile?.level ?? 1}
-            </Text>
-          </View>
-          <View className="flex-1 rounded-2xl bg-neutral-100 p-4">
-            <Text className="text-xs uppercase tracking-wide text-neutral-500">XP</Text>
-            <Text className="mt-1 text-xl font-bold text-neutral-950">
+            </AppText>
+          </Card>
+          <Card className="flex-1 rounded-2xl p-4" variant="muted">
+            <AppText tone="subtle" variant="caption">
+              XP
+            </AppText>
+            <AppText className="mt-1" variant="stat">
               {profile?.xp ?? 0}
-            </Text>
-          </View>
+            </AppText>
+          </Card>
         </View>
 
-        <View className="gap-1 rounded-2xl bg-neutral-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-neutral-500">Member since</Text>
-          <Text className="text-sm font-medium text-neutral-900">
-            {formatCreatedAt(createdAt)}
-          </Text>
-        </View>
+        <Card className="gap-1 rounded-2xl p-4" variant="muted">
+          <AppText tone="subtle" variant="caption">
+            MEMBER SINCE
+          </AppText>
+          <AppText className="font-medium">{formatCreatedAt(createdAt)}</AppText>
+        </Card>
 
         <AuthButton label="Sign out" onPress={handleSignOut} variant="danger" />
-      </View>
+      </Card>
 
       <ProfileAchievementsSection />
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  contentContainer: {
+    gap: 16,
+    padding: 16,
+    paddingBottom: 32,
+  },
+});

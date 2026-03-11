@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { AppText, Badge, Card } from '../components';
 import {
   getQuestObjectiveSummary,
   selectActiveQuestCards,
@@ -26,52 +27,46 @@ function QuestCard({
   quest: ReturnType<typeof selectActiveQuestCards>[number] | ReturnType<typeof selectCompletedQuestCards>[number];
 }) {
   return (
-    <Pressable
-      className={`gap-3 rounded-3xl border p-5 ${
-        quest.isCompleted ? 'border-emerald-200 bg-emerald-50' : 'border-neutral-200 bg-white'
-      }`}
-      onPress={onPress}
-    >
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1 gap-1">
-          <Text className="text-lg font-semibold text-neutral-950">{quest.title}</Text>
-          <Text className="text-sm leading-5 text-neutral-600">{quest.description}</Text>
+    <Pressable onPress={onPress}>
+      <Card className="gap-3" variant={quest.isCompleted ? 'success' : 'default'}>
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="flex-1 gap-1">
+            <AppText variant="heading">{quest.title}</AppText>
+            <AppText tone="muted">{quest.description}</AppText>
+          </View>
+          <Badge
+            label={quest.isCompleted ? 'Completed' : 'Active'}
+            variant={quest.isCompleted ? 'completed' : 'active'}
+          />
         </View>
-        <View
-          className={`rounded-full px-3 py-1 ${
-            quest.isCompleted ? 'bg-emerald-100' : 'bg-amber-100'
-          }`}
-        >
-          <Text
-            className={`text-xs font-semibold uppercase tracking-wide ${
-              quest.isCompleted ? 'text-emerald-800' : 'text-amber-800'
-            }`}
-          >
-            {quest.isCompleted ? 'Completed' : 'Active'}
-          </Text>
-        </View>
-      </View>
 
-      <View className="gap-2 rounded-2xl bg-neutral-50 p-4">
-        <Text className="text-xs uppercase tracking-wide text-neutral-500">Objective</Text>
-        <Text className="text-sm font-medium text-neutral-900">
-          {getQuestObjectiveSummary(quest)}
-        </Text>
-        <Text className="text-sm text-neutral-500">{quest.progress.progressLabel}</Text>
-      </View>
+        <Card className="gap-2 rounded-2xl p-4" variant="muted">
+          <AppText tone="subtle" variant="caption">
+            OBJECTIVE
+          </AppText>
+          <AppText className="font-medium">{getQuestObjectiveSummary(quest)}</AppText>
+          <AppText tone="muted">{quest.progress.progressLabel}</AppText>
+        </Card>
 
-      <View className="flex-row gap-3">
-        <View className="flex-1 rounded-2xl bg-sky-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-sky-700">Quest XP</Text>
-          <Text className="mt-1 text-lg font-bold text-sky-950">+{quest.reward.xp}</Text>
+        <View className="flex-row gap-3">
+          <Card className="flex-1 rounded-2xl p-4" variant="info">
+            <AppText className="text-sky-700" variant="caption">
+              QUEST XP
+            </AppText>
+            <AppText className="mt-1 text-sky-950" variant="heading">
+              +{quest.reward.xp}
+            </AppText>
+          </Card>
+          <Card className="flex-1 rounded-2xl p-4" variant="warning">
+            <AppText className="text-amber-700" variant="caption">
+              ACHIEVEMENT
+            </AppText>
+            <AppText className="mt-1 text-amber-950" variant="label">
+              {quest.reward.achievementUnlocks[0]?.title ?? 'None'}
+            </AppText>
+          </Card>
         </View>
-        <View className="flex-1 rounded-2xl bg-amber-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-amber-700">Achievement</Text>
-          <Text className="mt-1 text-sm font-semibold text-amber-950">
-            {quest.reward.achievementUnlocks[0]?.title ?? 'None'}
-          </Text>
-        </View>
-      </View>
+      </Card>
     </Pressable>
   );
 }
@@ -89,58 +84,64 @@ export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
   return (
     <ScrollView
       className="flex-1"
-      contentContainerStyle={{
-        gap: 16,
-        padding: 16,
-        paddingBottom: 32,
-      }}
+      contentContainerStyle={styles.contentContainer}
     >
       <View className="gap-1">
-        <Text className="text-[22px] font-bold text-neutral-900">Quests</Text>
-        <Text className="text-sm text-neutral-500">
+        <AppText variant="sectionTitle">Quests</AppText>
+        <AppText tone="muted">
           Explore curated routes and earn quest rewards as your visited places sync.
-        </Text>
+        </AppText>
       </View>
 
       {!isAuthenticated ? (
-        <View className="gap-2 rounded-3xl border border-dashed border-neutral-300 bg-neutral-50 p-5">
-          <Text className="text-base font-semibold text-neutral-950">Guest mode</Text>
-          <Text className="text-sm leading-5 text-neutral-500">
+        <Card className="gap-2" variant="dashed">
+          <AppText variant="heading">Guest mode</AppText>
+          <AppText tone="muted">
             You can browse quests now. Sign in when you want Firestore-backed progress and rewards.
-          </Text>
-        </View>
+          </AppText>
+        </Card>
       ) : null}
 
       <View className="flex-row gap-3">
-        <View className="flex-1 rounded-3xl bg-neutral-900 p-4">
-          <Text className="text-xs uppercase tracking-wide text-neutral-300">Active</Text>
-          <Text className="mt-1 text-2xl font-bold text-white">{summary.activeCount}</Text>
-        </View>
-        <View className="flex-1 rounded-3xl bg-emerald-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-emerald-700">Completed</Text>
-          <Text className="mt-1 text-2xl font-bold text-emerald-950">
+        <Card className="flex-1 p-4" variant="inverse">
+          <AppText className="text-slate-300" variant="caption">
+            ACTIVE
+          </AppText>
+          <AppText className="mt-1 text-white text-2xl" variant="display">
+            {summary.activeCount}
+          </AppText>
+        </Card>
+        <Card className="flex-1 p-4" variant="success">
+          <AppText className="text-emerald-700" variant="caption">
+            COMPLETED
+          </AppText>
+          <AppText className="mt-1 text-emerald-950 text-2xl" variant="display">
             {summary.completedCount}
-          </Text>
-        </View>
+          </AppText>
+        </Card>
       </View>
 
       {summary.totalXp > 0 ? (
-        <View className="rounded-3xl bg-sky-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-sky-700">Quest XP earned</Text>
-          <Text className="mt-1 text-xl font-bold text-sky-950">+{summary.totalXp}</Text>
-        </View>
+        <Card className="p-4" variant="info">
+          <AppText className="text-sky-700" variant="caption">
+            QUEST XP EARNED
+          </AppText>
+          <AppText className="mt-1 text-sky-950" variant="stat">
+            +{summary.totalXp}
+          </AppText>
+        </Card>
       ) : null}
 
       {questsStatus === 'loading' ? (
-        <Text className="text-sm text-neutral-500">Loading quests...</Text>
+        <AppText tone="muted">Loading quests...</AppText>
       ) : null}
 
       {questsError ? (
-        <Text className="text-sm text-red-600">{questsError}</Text>
+        <AppText className="text-red-600">{questsError}</AppText>
       ) : null}
 
       {progressError && progressStatus === 'error' ? (
-        <Text className="text-sm text-red-600">{progressError}</Text>
+        <AppText className="text-red-600">{progressError}</AppText>
       ) : null}
 
       <View className="gap-3">
@@ -148,18 +149,18 @@ export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
           <QuestCard key={quest.id} onPress={() => onOpenQuest(quest.id)} quest={quest} />
         ))}
         {activeQuests.length === 0 && questsStatus === 'ready' ? (
-          <View className="rounded-3xl border border-neutral-200 bg-white p-5">
-            <Text className="text-base font-semibold text-neutral-950">No active quests</Text>
-            <Text className="mt-1 text-sm text-neutral-500">
+          <Card>
+            <AppText variant="heading">No active quests</AppText>
+            <AppText className="mt-1" tone="muted">
               New quest definitions can be added from Firestore without changing the app shell.
-            </Text>
-          </View>
+            </AppText>
+          </Card>
         ) : null}
       </View>
 
       {completedQuests.length > 0 ? (
         <View className="gap-3">
-          <Text className="text-base font-semibold text-neutral-950">Completed</Text>
+          <AppText variant="heading">Completed</AppText>
           {completedQuests.map(quest => (
             <QuestCard key={quest.id} onPress={() => onOpenQuest(quest.id)} quest={quest} />
           ))}
@@ -168,3 +169,11 @@ export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  contentContainer: {
+    gap: 16,
+    padding: 16,
+    paddingBottom: 32,
+  },
+});

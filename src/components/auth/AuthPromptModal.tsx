@@ -1,7 +1,8 @@
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 
 import type { AuthActionType } from '../../types';
+import { AppText, Card } from '..';
 import { SignInScreen, SignUpScreen } from '../../screens';
 import {
   authActions,
@@ -80,14 +81,12 @@ export function AuthPromptModal() {
           ) : null}
 
           {modal.view === 'prompt' ? (
-            <View className="gap-4 rounded-3xl bg-white p-6">
+            <Card className="gap-4 px-6 py-6">
               <View className="gap-1">
-                <Text className="text-2xl font-bold text-neutral-950">
+                <AppText className="text-2xl" variant="display">
                   Sign in when you need it
-                </Text>
-                <Text className="text-sm leading-5 text-neutral-500">
-                  {actionMessage}
-                </Text>
+                </AppText>
+                <AppText tone="muted">{actionMessage}</AppText>
               </View>
 
               <View className="gap-3">
@@ -114,7 +113,7 @@ export function AuthPromptModal() {
                 onPress={handleClose}
                 variant="secondary"
               />
-            </View>
+            </Card>
           ) : null}
         </Pressable>
       </Pressable>

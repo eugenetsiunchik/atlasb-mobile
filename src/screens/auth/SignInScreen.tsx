@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
-import { AuthButton, AuthTextField } from '../../components';
+import { AppText, AuthButton, AuthTextField, Card } from '../../components';
 import {
   selectAuthError,
   selectAuthSubmitting,
@@ -47,22 +47,20 @@ export function SignInScreen({
   }, [dispatch]);
 
   return (
-    <View
-      className={`gap-4 rounded-3xl border border-neutral-200 bg-white p-6 ${
-        variant === 'screen' ? 'shadow-sm' : ''
-      }`}
-    >
+    <Card className={variant === 'screen' ? 'gap-4 shadow-sm' : 'gap-4'}>
       <View className="gap-1">
-        <Text className="text-2xl font-bold text-neutral-950">Sign in</Text>
-        <Text className="text-sm leading-5 text-neutral-500">
+        <AppText className="text-2xl" variant="display">
+          Sign in
+        </AppText>
+        <AppText tone="muted">
           Sign in only when you want to post, suggest edits, or use profile features.
-        </Text>
+        </AppText>
       </View>
 
       {authError ? (
-        <View className="rounded-2xl bg-rose-50 px-4 py-3">
-          <Text className="text-sm text-rose-700">{authError}</Text>
-        </View>
+        <Card className="rounded-2xl px-4 py-3" variant="muted">
+          <AppText className="text-rose-700">{authError}</AppText>
+        </Card>
       ) : null}
 
       <View className="gap-3">
@@ -102,9 +100,9 @@ export function SignInScreen({
       </View>
 
       <View className="gap-2">
-        <Text className="text-center text-sm text-neutral-500">
+        <AppText className="text-center" tone="muted">
           Need an account?
-        </Text>
+        </AppText>
         <AuthButton
           label="Create account"
           onPress={onSwitchToSignUp ?? (() => {})}
@@ -114,6 +112,6 @@ export function SignInScreen({
           <AuthButton label="Not now" onPress={onClose} variant="secondary" />
         ) : null}
       </View>
-    </View>
+    </Card>
   );
 }

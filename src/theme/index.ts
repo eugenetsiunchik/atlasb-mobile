@@ -40,6 +40,15 @@ const palette = {
 } as const;
 
 const colors = {
+  background: '#f8fafc',
+  backgroundSubtle: '#f1f5f9',
+  border: '#e2e8f0',
+  borderStrong: '#cbd5e1',
+  card: '#ffffff',
+  foreground: '#0f172a',
+  foregroundInverse: '#f8fafc',
+  foregroundMuted: '#475569',
+  foregroundSubtle: '#64748b',
   gray50: palette.gray[50],
   gray100: palette.gray[100],
   gray200: palette.gray[200],
@@ -55,6 +64,10 @@ const colors = {
   orangeAccentMuted: palette.orange.trunk,
   slate900: palette.slate[900],
   slate950: palette.slate[950],
+  statusDanger: '#be123c',
+  statusInfo: '#0369a1',
+  statusSuccess: '#047857',
+  statusWarning: '#b45309',
   overlaySubtle: 'rgba(15, 23, 42, 0.14)',
   surfaceDark: 'rgba(17, 24, 39, 0.96)',
   surfaceDarkMuted: 'rgba(31, 41, 55, 0.92)',
@@ -72,6 +85,37 @@ export const theme = {
   palette,
   colors,
   spacing,
+  semantic: {
+    accent: {
+      DEFAULT: colors.orangeAccent,
+      foreground: colors.foreground,
+      strong: colors.orangeAccentStrong,
+      subtle: colors.orangeAccentMuted,
+    },
+    background: {
+      DEFAULT: colors.background,
+      subtle: colors.backgroundSubtle,
+    },
+    border: {
+      DEFAULT: colors.border,
+      strong: colors.borderStrong,
+    },
+    card: {
+      DEFAULT: colors.card,
+    },
+    foreground: {
+      DEFAULT: colors.foreground,
+      inverse: colors.foregroundInverse,
+      muted: colors.foregroundMuted,
+      subtle: colors.foregroundSubtle,
+    },
+    status: {
+      danger: colors.statusDanger,
+      info: colors.statusInfo,
+      success: colors.statusSuccess,
+      warning: colors.statusWarning,
+    },
+  },
   accent: {
     primary: colors.orangeAccent,
     strong: colors.orangeAccentStrong,

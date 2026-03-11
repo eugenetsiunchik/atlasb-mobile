@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { AppText, Badge, Card } from '../components';
 import {
   getQuestObjectiveSummary,
   getQuestTargetLabels,
@@ -41,9 +42,11 @@ export function QuestDetailsScreen({ onBack, questId }: QuestDetailsScreenProps)
     return (
       <View className="flex-1 gap-4 p-4">
         <Pressable onPress={onBack}>
-          <Text className="text-sm font-semibold text-sky-700">Back to quests</Text>
+          <AppText tone="accent" variant="label">
+            Back to quests
+          </AppText>
         </Pressable>
-        <Text className="text-base text-neutral-500">This quest is no longer available.</Text>
+        <AppText tone="muted">This quest is no longer available.</AppText>
       </View>
     );
   }
@@ -53,107 +56,107 @@ export function QuestDetailsScreen({ onBack, questId }: QuestDetailsScreenProps)
   return (
     <ScrollView
       className="flex-1"
-      contentContainerStyle={{
-        gap: 16,
-        padding: 16,
-        paddingBottom: 32,
-      }}
+      contentContainerStyle={styles.contentContainer}
     >
       <Pressable onPress={onBack}>
-        <Text className="text-sm font-semibold text-sky-700">Back to quests</Text>
+        <AppText tone="accent" variant="label">
+          Back to quests
+        </AppText>
       </Pressable>
 
       <View className="gap-2">
-        <View
-          className={`self-start rounded-full px-3 py-1 ${
-            quest.isCompleted ? 'bg-emerald-100' : 'bg-amber-100'
-          }`}
-        >
-          <Text
-            className={`text-xs font-semibold uppercase tracking-wide ${
-              quest.isCompleted ? 'text-emerald-800' : 'text-amber-800'
-            }`}
-          >
-            {quest.isCompleted ? 'Completed' : 'Active quest'}
-          </Text>
-        </View>
-        <Text className="text-[24px] font-bold text-neutral-950">{quest.title}</Text>
-        <Text className="text-sm leading-6 text-neutral-600">{quest.description}</Text>
+        <Badge
+          label={quest.isCompleted ? 'Completed' : 'Active quest'}
+          variant={quest.isCompleted ? 'completed' : 'active'}
+        />
+        <AppText variant="display">{quest.title}</AppText>
+        <AppText className="leading-6" tone="muted">
+          {quest.description}
+        </AppText>
       </View>
 
-      <View className="gap-3 rounded-3xl border border-neutral-200 bg-white p-5">
-        <Text className="text-xs uppercase tracking-wide text-neutral-500">Objective</Text>
-        <Text className="text-base font-semibold text-neutral-950">
-          {getQuestObjectiveSummary(quest)}
-        </Text>
-        <Text className="text-sm text-neutral-500">{quest.progress.progressLabel}</Text>
-      </View>
+      <Card className="gap-3">
+        <AppText tone="subtle" variant="caption">
+          OBJECTIVE
+        </AppText>
+        <AppText variant="heading">{getQuestObjectiveSummary(quest)}</AppText>
+        <AppText tone="muted">{quest.progress.progressLabel}</AppText>
+      </Card>
 
       <View className="flex-row gap-3">
-        <View className="flex-1 rounded-3xl bg-sky-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-sky-700">Reward XP</Text>
-          <Text className="mt-1 text-xl font-bold text-sky-950">+{quest.reward.xp}</Text>
-        </View>
-        <View className="flex-1 rounded-3xl bg-amber-50 p-4">
-          <Text className="text-xs uppercase tracking-wide text-amber-700">Achievement</Text>
-          <Text className="mt-1 text-sm font-semibold text-amber-950">
+        <Card className="flex-1 p-4" variant="info">
+          <AppText className="text-sky-700" variant="caption">
+            REWARD XP
+          </AppText>
+          <AppText className="mt-1 text-sky-950" variant="stat">
+            +{quest.reward.xp}
+          </AppText>
+        </Card>
+        <Card className="flex-1 p-4" variant="warning">
+          <AppText className="text-amber-700" variant="caption">
+            ACHIEVEMENT
+          </AppText>
+          <AppText className="mt-1 text-amber-950" variant="label">
             {quest.reward.achievementUnlocks[0]?.title ?? 'Reward badge'}
-          </Text>
-        </View>
+          </AppText>
+        </Card>
       </View>
 
-      <View className="gap-2 rounded-3xl border border-neutral-200 bg-white p-5">
-        <Text className="text-xs uppercase tracking-wide text-neutral-500">Completion</Text>
-        <Text className="text-sm font-medium text-neutral-900">
-          {formatCompletedAt(quest.progress.completedAtMs)}
-        </Text>
-        <Text className="text-sm text-neutral-500">
+      <Card className="gap-2">
+        <AppText tone="subtle" variant="caption">
+          COMPLETION
+        </AppText>
+        <AppText className="font-medium">{formatCompletedAt(quest.progress.completedAtMs)}</AppText>
+        <AppText tone="muted">
           {quest.progress.rewardAppliedAtMs
             ? 'Rewards have been applied to your profile.'
             : 'Rewards unlock automatically after completion.'}
-        </Text>
-      </View>
+        </AppText>
+      </Card>
 
       {targetLabels.length > 0 ? (
-        <View className="gap-3 rounded-3xl border border-neutral-200 bg-white p-5">
-          <Text className="text-base font-semibold text-neutral-950">Targets</Text>
+        <Card className="gap-3">
+          <AppText variant="heading">Targets</AppText>
           {targetLabels.map(target => {
             const completed = quest.progress.matchedTargetIds.includes(target.id);
 
             return (
-              <View
+              <Card
                 key={target.id}
-                className={`rounded-2xl border px-4 py-3 ${
-                  completed ? 'border-emerald-200 bg-emerald-50' : 'border-neutral-200 bg-neutral-50'
-                }`}
+                className="rounded-2xl px-4 py-3"
+                variant={completed ? 'success' : 'muted'}
               >
-                <Text
-                  className={`text-sm font-medium ${
-                    completed ? 'text-emerald-900' : 'text-neutral-900'
-                  }`}
-                >
+                <AppText className={completed ? 'text-emerald-900 font-medium' : 'font-medium'}>
                   {target.label}
-                </Text>
-              </View>
+                </AppText>
+              </Card>
             );
           })}
-        </View>
+        </Card>
       ) : null}
 
-      <View className="gap-3 rounded-3xl border border-neutral-200 bg-white p-5">
-        <Text className="text-base font-semibold text-neutral-950">Visited places</Text>
+      <Card className="gap-3">
+        <AppText variant="heading">Visited places</AppText>
         {visitedPlaceNames.length > 0 ? (
           visitedPlaceNames.map(placeName => (
-            <Text key={placeName} className="text-sm text-neutral-600">
+            <AppText key={placeName} className="text-foreground-muted">
               {placeName}
-            </Text>
+            </AppText>
           ))
         ) : (
-          <Text className="text-sm text-neutral-500">
+          <AppText tone="muted">
             Visit places on the map and your quest progress will update here.
-          </Text>
+          </AppText>
         )}
-      </View>
+      </Card>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  contentContainer: {
+    gap: 16,
+    padding: 16,
+    paddingBottom: 32,
+  },
+});
