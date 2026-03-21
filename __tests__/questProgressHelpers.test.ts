@@ -15,6 +15,7 @@ function createPlace(id: string, name: string, region: string): PlaceMapItem {
     longitude: 0,
     name,
     region,
+    regionId: region.toLowerCase(),
     visitVerificationRadiusMeters: 150,
   };
 }

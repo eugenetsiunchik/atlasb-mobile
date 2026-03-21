@@ -13,13 +13,21 @@ import { selectIsAuthenticated, useAppDispatch, useAppSelector } from '../store'
 import { getLocalTileHost } from '../utils/localTiles';
 
 type SettingsScreenProps = {
+  maxZoomOverride: string;
+  onMaxZoomOverrideChange: (value: string) => void;
+  onShowPlaceMarkersChange: (value: boolean) => void;
   tilesHostOverride: string;
   onTilesHostOverrideChange: (value: string) => void;
+  showPlaceMarkers: boolean;
 };
 
 export function SettingsScreen({
+  maxZoomOverride,
+  onMaxZoomOverrideChange,
+  onShowPlaceMarkersChange,
   tilesHostOverride,
   onTilesHostOverrideChange,
+  showPlaceMarkers,
 }: SettingsScreenProps) {
   const dispatch = useAppDispatch();
   const locationPermission = useAppSelector(selectLocationPermission);
@@ -122,6 +130,10 @@ export function SettingsScreen({
     );
   }, [dispatch, isAuthenticated]);
 
+  const handleTogglePlaceMarkers = React.useCallback(() => {
+    onShowPlaceMarkersChange(!showPlaceMarkers);
+  }, [onShowPlaceMarkersChange, showPlaceMarkers]);
+
   return (
     <View className="flex-1 gap-3 p-4">
       <AppText variant="sectionTitle">Dev Settings</AppText>
@@ -155,6 +167,40 @@ export function SettingsScreen({
             Base URL: {activeMapEnvironment.baseUrl}
           </AppText>
         ) : null}
+      </Card>
+
+      <Card className="gap-3 rounded-[28px] px-4 py-4">
+        <AppText variant="heading">Map markers</AppText>
+        <AppText variant="caption">
+          Place markers are currently {showPlaceMarkers ? 'visible' : 'hidden'} on the map.
+        </AppText>
+        <Button
+          label={showPlaceMarkers ? 'Hide place markers' : 'Show place markers'}
+          onPress={handleTogglePlaceMarkers}
+          variant="secondary"
+        />
+        <AppText variant="caption" tone="muted">
+          Use this to quickly inspect the map without place markers rendered on top.
+        </AppText>
+      </Card>
+
+      <Card className="gap-3 rounded-[28px] px-4 py-4">
+        <AppText variant="heading">Zoom</AppText>
+        <Input
+          inputClassName="rounded-xl px-3 py-2 text-sm"
+          keyboardType="decimal-pad"
+          label="Max zoom override"
+          onChangeText={onMaxZoomOverrideChange}
+          placeholder="Leave empty"
+          size="sm"
+          value={maxZoomOverride}
+        />
+        <AppText variant="caption" tone="muted">
+          Leave empty to use the default max zoom for the current fog-of-war level.
+        </AppText>
+        <AppText variant="caption" tone="muted">
+          Values below the current minimum zoom are clamped automatically.
+        </AppText>
       </Card>
 
       <Card className="gap-3 rounded-[28px] px-4 py-4">

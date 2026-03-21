@@ -23,6 +23,20 @@ type FirestoreGeoPointLike = {
   longitude: number;
 };
 
+const REGION_LABELS_BY_ID: Record<string, string> = {
+  brest: 'Brest',
+  gomel: 'Gomel',
+  grodno: 'Grodno',
+  hrodna: 'Hrodna',
+  minsk: 'Minsk',
+  'minsk-city': 'Minsk',
+  'minsk-region': 'Minsk Region',
+  mogilev: 'Mogilev',
+  mahilyow: 'Mogilev',
+  vitebsk: 'Vitebsk',
+  unknown: 'Unknown region',
+};
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -37,6 +51,7 @@ function isGeoPointLike(value: unknown): value is FirestoreGeoPointLike {
 
 function readCoordinate(data: Record<string, unknown>): MapCoordinate | null {
   const nestedCandidates = [
+    data.geo,
     data.location,
     data.coordinates,
     data.coordinate,
@@ -72,6 +87,36 @@ function readCoordinate(data: Record<string, unknown>): MapCoordinate | null {
   return null;
 }
 
+function toTitleCase(value: string) {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function readRegionId(data: Record<string, unknown>) {
+  if (typeof data.regionId === 'string' && data.regionId.trim()) {
+    return data.regionId.trim();
+  }
+
+  if (typeof data.region === 'string' && data.region.trim()) {
+    return data.region.trim();
+  }
+
+  return 'unknown';
+}
+
+function getRegionLabel(regionId: string) {
+  const normalizedRegionId = regionId.trim().toLowerCase();
+
+  if (REGION_LABELS_BY_ID[normalizedRegionId]) {
+    return REGION_LABELS_BY_ID[normalizedRegionId];
+  }
+
+  return toTitleCase(normalizedRegionId.replace(/[-_]+/g, ' '));
+}
+
 function normalizePlace(
   document: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>,
 ): PlaceMapItem | null {
@@ -83,7 +128,8 @@ function normalizePlace(
 
   const coordinate = readCoordinate(data);
   const name = typeof data.name === 'string' ? data.name.trim() : '';
-  const region = typeof data.region === 'string' ? data.region.trim() : '';
+  const regionId = readRegionId(data);
+  const region = getRegionLabel(regionId);
   const imageUrl =
     typeof data.imageUrl === 'string' && data.imageUrl.trim()
       ? data.imageUrl.trim()
@@ -105,7 +151,7 @@ function normalizePlace(
       ? visitVerificationRadiusMetersCandidate
       : DEFAULT_VISIT_VERIFICATION_RADIUS_METERS;
 
-  if (!coordinate || !name || !region) {
+  if (!coordinate || !name) {
     return null;
   }
 
@@ -116,6 +162,7 @@ function normalizePlace(
     longitude: coordinate.longitude,
     name,
     region,
+    regionId,
     allowManualVisitMarking,
     visitVerificationRadiusMeters,
   };
@@ -126,7 +173,11 @@ function applyFilters(places: PlaceMapItem[], filters: MapFilters) {
   const regionIds = new Set(filters.regionIds);
 
   return places.filter(place => {
-    if (regionIds.size > 0 && !regionIds.has(place.region)) {
+    if (
+      regionIds.size > 0 &&
+      !regionIds.has(place.regionId) &&
+      !regionIds.has(place.region)
+    ) {
       return false;
     }
 
@@ -150,14 +201,9 @@ function logLoadedPlaces(params: {
 
   console.log('[Firebase] Firestore loaded places', {
     fetchedCount: snapshot.size,
-    fetchedDocuments: snapshot.docs.map(documentSnapshot => ({
-      id: documentSnapshot.id,
-      ...documentSnapshot.data(),
-    })),
     filteredCount: filteredPlaces.length,
     filters,
     normalizedCount: normalizedPlaces.length,
-    normalizedPlaces,
   });
 }
 
@@ -168,7 +214,15 @@ export function subscribeToPlaces(
     onSuccess: (places: PlaceMapItem[]) => void;
   },
 ) {
+  console.log('[Firebase] Subscribing to places', {
+    filters,
+    path: `${PLACES_COLLECTION_NAME}?status=${ACTIVE_PLACE_STATUS}`,
+  });
+
   if (!isFirebaseConfigured()) {
+    console.warn('[Firebase] Places subscription skipped because Firebase is not configured', {
+      filters,
+    });
     options.onError(getFirebaseConfigurationErrorMessage());
     return () => undefined;
   }

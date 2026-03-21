@@ -21,6 +21,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { AppTabBar, AuthPromptModal } from './src/components';
+import { useMapPlacesSync } from './src/features/map/hooks';
 import { useUserPlaceStatesSync } from './src/features/userPlace';
 import { useExploredTerritorySync } from './src/features/territory';
 import { installGlobalFirebaseErrorLogging, logFirebaseError } from './src/firebase';
@@ -47,6 +48,10 @@ import {
 installGlobalFirebaseErrorLogging();
 
 type TilesHostOverrideContextValue = {
+  maxZoomOverride: string;
+  setMaxZoomOverride: (value: string) => void;
+  showPlaceMarkers: boolean;
+  setShowPlaceMarkers: (value: boolean) => void;
   tilesHostOverride: string;
   setTilesHostOverride: (value: string) => void;
 };
@@ -64,19 +69,46 @@ function useTilesHostOverride() {
 }
 
 function MapTabScreen() {
-  const { tilesHostOverride } = useTilesHostOverride();
+  const { maxZoomOverride, showPlaceMarkers, tilesHostOverride } = useTilesHostOverride();
+  const parsedMaxZoomOverride = React.useMemo(() => {
+    const normalizedValue = maxZoomOverride.trim();
 
-  return <MapScreen hostOverride={tilesHostOverride} />;
+    if (!normalizedValue) {
+      return null;
+    }
+
+    const parsedValue = Number(normalizedValue);
+    return Number.isFinite(parsedValue) ? parsedValue : null;
+  }, [maxZoomOverride]);
+
+  return (
+    <MapScreen
+      hostOverride={tilesHostOverride}
+      maxZoomLevelOverride={parsedMaxZoomOverride}
+      showPlaceMarkers={showPlaceMarkers}
+    />
+  );
 }
 
 function DevSettingsTabScreen() {
-  const { tilesHostOverride, setTilesHostOverride } = useTilesHostOverride();
+  const {
+    maxZoomOverride,
+    setMaxZoomOverride,
+    setShowPlaceMarkers,
+    setTilesHostOverride,
+    showPlaceMarkers,
+    tilesHostOverride,
+  } = useTilesHostOverride();
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
       <SettingsScreen
+        maxZoomOverride={maxZoomOverride}
+        onMaxZoomOverrideChange={setMaxZoomOverride}
+        onShowPlaceMarkersChange={setShowPlaceMarkers}
         tilesHostOverride={tilesHostOverride}
         onTilesHostOverrideChange={setTilesHostOverride}
+        showPlaceMarkers={showPlaceMarkers}
       />
     </SafeAreaView>
   );
@@ -206,13 +238,22 @@ function AuthBootstrap() {
 function AppContent() {
   const isDarkMode = useColorScheme() === 'dark';
   const safeAreaInsets = useSafeAreaInsets();
+  const [maxZoomOverride, setMaxZoomOverride] = React.useState('');
+  const [showPlaceMarkers, setShowPlaceMarkers] = React.useState(true);
   const [tilesHostOverride, setTilesHostOverride] = React.useState<string>('');
   const [createMenuVisible, setCreateMenuVisible] = React.useState(false);
   const navigationTheme = isDarkMode ? DarkTheme : DefaultTheme;
   const sceneBackgroundColor = navigationTheme.colors.background;
   const tilesHostOverrideValue = React.useMemo(
-    () => ({ tilesHostOverride, setTilesHostOverride }),
-    [tilesHostOverride],
+    () => ({
+      maxZoomOverride,
+      setMaxZoomOverride,
+      setShowPlaceMarkers,
+      setTilesHostOverride,
+      showPlaceMarkers,
+      tilesHostOverride,
+    }),
+    [maxZoomOverride, showPlaceMarkers, tilesHostOverride],
   );
   const handleCloseCreateMenu = React.useCallback(() => {
     setCreateMenuVisible(false);
@@ -223,6 +264,7 @@ function AppContent() {
 
   useUserPlaceStatesSync();
   useExploredTerritorySync();
+  useMapPlacesSync();
   useUserAchievementsSync();
   useQuestsSync();
   useQuestProgressEvaluation();

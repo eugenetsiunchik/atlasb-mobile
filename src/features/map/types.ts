@@ -24,6 +24,7 @@ export type PlaceMapItem = {
   longitude: number;
   name: string;
   region: string;
+  regionId: string;
   visitVerificationRadiusMeters: number;
 };
 

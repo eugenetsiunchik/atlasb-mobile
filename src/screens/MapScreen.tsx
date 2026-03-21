@@ -31,7 +31,6 @@ import {
   openAppPermissionSettings,
   requestLocationPermission,
 } from '../features/map/services/locationPermissionService';
-import { subscribeToPlaces } from '../features/map/services/placesService';
 import {
   TERRITORY_MAX_DISPLAY_GRID_ZOOM,
   TERRITORY_MIN_DISPLAY_GRID_ZOOM,
@@ -69,6 +68,7 @@ const BELARUS_CENTER: [number, number] = [27.9534, 53.7098];
 const BELARUS_ZOOM_LEVEL = 5.6;
 const MAX_EXPLORATION_ACCURACY_METERS = 250;
 const MIN_EXPLORATION_WRITE_INTERVAL_MS = 120_000;
+const PLACE_COUNT_RADIUS_METERS = 5_000;
 
 type GeoJsonPlaceFeature = {
   geometry: {
@@ -107,6 +107,8 @@ type MapViewRef = {
 
 type MapScreenProps = {
   hostOverride?: string;
+  maxZoomLevelOverride?: number | null;
+  showPlaceMarkers?: boolean;
 };
 
 type MapViewportState = {
@@ -178,7 +180,37 @@ function getExplorationMovementThresholdMeters(visibilityRadiusMeters: number) {
   return Math.max(100, Math.min(2_000, Math.round(visibilityRadiusMeters * 0.6)));
 }
 
-export function MapScreen({ hostOverride = '' }: MapScreenProps) {
+function areCoordinatesClose(
+  left: [number, number],
+  right: [number, number],
+  tolerance = 0.0001,
+) {
+  return (
+    Math.abs(left[0] - right[0]) <= tolerance &&
+    Math.abs(left[1] - right[1]) <= tolerance
+  );
+}
+
+function areViewportStatesEquivalent(
+  left: MapViewportState | null,
+  right: MapViewportState,
+) {
+  if (!left) {
+    return false;
+  }
+
+  return (
+    Math.abs(left.zoomLevel - right.zoomLevel) <= 0.01 &&
+    areCoordinatesClose(left.bounds.northEast, right.bounds.northEast) &&
+    areCoordinatesClose(left.bounds.southWest, right.bounds.southWest)
+  );
+}
+
+export function MapScreen({
+  hostOverride = '',
+  maxZoomLevelOverride = null,
+  showPlaceMarkers = true,
+}: MapScreenProps) {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const places = useAppSelector(selectAllMapPlaces);
@@ -222,14 +254,24 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
     () => getDisplayGridZoom(viewportState?.zoomLevel ?? null),
     [viewportState?.zoomLevel],
   );
+  const effectiveMaxZoomLevel = React.useMemo(() => {
+    if (
+      typeof maxZoomLevelOverride !== 'number' ||
+      !Number.isFinite(maxZoomLevelOverride)
+    ) {
+      return fogOfWarRule.maxZoomLevel;
+    }
+
+    return Math.max(fogOfWarRule.minZoomLevel, maxZoomLevelOverride);
+  }, [fogOfWarRule.maxZoomLevel, fogOfWarRule.minZoomLevel, maxZoomLevelOverride]);
   const constrainedDefaultZoomLevel = React.useMemo(
     () =>
       constrainZoomLevel(
         BELARUS_ZOOM_LEVEL,
         fogOfWarRule.minZoomLevel,
-        fogOfWarRule.maxZoomLevel,
+        effectiveMaxZoomLevel,
       ),
-    [fogOfWarRule.maxZoomLevel, fogOfWarRule.minZoomLevel],
+    [effectiveMaxZoomLevel, fogOfWarRule.minZoomLevel],
   );
   const visitedPlaceIds = React.useMemo(
     () =>
@@ -240,6 +282,17 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
       ),
     [userPlaceStates],
   );
+  const nearbyPlacesCount = React.useMemo(() => {
+    if (!userLocation) {
+      return null;
+    }
+
+    return places.reduce((count, place) => {
+      const distanceMeters = getDistanceBetweenCoordinatesMeters(userLocation, place);
+
+      return distanceMeters <= PLACE_COUNT_RADIUS_METERS ? count + 1 : count;
+    }, 0);
+  }, [places, userLocation]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -262,19 +315,6 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
       isMounted = false;
     };
   }, [hostOverride]);
-
-  React.useEffect(() => {
-    dispatch(mapActions.placesLoadingStarted());
-
-    return subscribeToPlaces(filters, {
-      onError: message => {
-        dispatch(mapActions.placesLoadFailed(message));
-      },
-      onSuccess: loadedPlaces => {
-        dispatch(mapActions.placesReceived(loadedPlaces));
-      },
-    });
-  }, [dispatch, filters]);
 
   React.useEffect(() => {
     if (!mapError) {
@@ -302,13 +342,19 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
         return;
       }
 
-      setViewportState({
+      const nextViewportState = {
         bounds: {
           northEast: visibleBounds[0],
           southWest: visibleBounds[1],
         },
         zoomLevel,
-      });
+      };
+
+      setViewportState(currentViewportState =>
+        areViewportStatesEquivalent(currentViewportState, nextViewportState)
+          ? currentViewportState
+          : nextViewportState,
+      );
     } catch (error) {
       logFirebaseError('Map viewport refresh failed', { screen: 'MapScreen' }, error);
     }
@@ -344,11 +390,7 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
   ]);
 
   const placesFeatureCollection = React.useMemo<GeoJsonPlaceFeatureCollection>(() => {
-    console.log('viewportState', viewportState);
-    console.log('revealedDisplayCellIds', revealedDisplayCellIds);
-    console.log('places', places);
-    console.log('displayGridZoom', displayGridZoom);
-    if (!viewportState) {
+    if (!showPlaceMarkers || !viewportState) {
       return EMPTY_PLACE_FEATURE_COLLECTION;
     }
 
@@ -383,9 +425,8 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
         })),
       type: 'FeatureCollection',
     };
-  }, [displayGridZoom, places, revealedDisplayCellIds, viewportState, visitedPlaceIds]);
+  }, [displayGridZoom, places, revealedDisplayCellIds, showPlaceMarkers, viewportState, visitedPlaceIds]);
 
-  console.log('placesFeatureCollection', placesFeatureCollection);
   const fogOverlayShape = React.useMemo(() => {
     if (!viewportState) {
       return EMPTY_FOG_FEATURE_COLLECTION;
@@ -406,11 +447,11 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
         zoomLevel: constrainZoomLevel(
           zoomLevel,
           fogOfWarRule.minZoomLevel,
-          fogOfWarRule.maxZoomLevel,
+          effectiveMaxZoomLevel,
         ),
       });
     },
-    [fogOfWarRule.maxZoomLevel, fogOfWarRule.minZoomLevel],
+    [effectiveMaxZoomLevel, fogOfWarRule.minZoomLevel],
   );
 
   const handleMapPress = React.useCallback(() => {
@@ -552,6 +593,15 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
     userLocation,
   ]);
 
+  React.useEffect(() => {
+    if (showPlaceMarkers) {
+      return;
+    }
+
+    dispatch(mapActions.placeSelectionCleared());
+    setIsDetailsVisible(false);
+  }, [dispatch, showPlaceMarkers]);
+
   const handleNearMePress = React.useCallback(async () => {
     const permission = await ensureLocationPermission();
 
@@ -624,7 +674,7 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
               zoomLevel: constrainedDefaultZoomLevel,
             }}
             minZoomLevel={fogOfWarRule.minZoomLevel}
-            maxZoomLevel={fogOfWarRule.maxZoomLevel}
+            maxZoomLevel={effectiveMaxZoomLevel}
             ref={cameraRef as never}
           />
           <UserLocation
@@ -635,52 +685,54 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
           <ShapeSource id="fog-of-war" shape={fogOverlayShape}>
             <FillLayer id="fog-fill" style={fogFillStyle as never} />
           </ShapeSource>
-          <ShapeSource
-            cluster
-            clusterMaxZoomLevel={13}
-            clusterRadius={44}
-            id="places"
-            onPress={handleShapeSourcePress}
-            shape={placesFeatureCollection}
-          >
-            <CircleLayer
-              filter={['has', 'point_count']}
-              id="cluster-circles"
-              style={clusterCircleStyle as never}
-            />
-            <SymbolLayer
-              filter={['has', 'point_count']}
-              id="cluster-count"
-              style={clusterLabelStyle as never}
-            />
-            <CircleLayer
-              filter={[
-                'all',
-                ['!', ['has', 'point_count']],
-                ['==', 'markerVariant', 'visited'],
-              ]}
-              id="place-points"
-              style={placeCircleStyle as never}
-            />
-            <CircleLayer
-              filter={[
-                'all',
-                ['!', ['has', 'point_count']],
-                ['==', 'markerVariant', 'question'],
-              ]}
-              id="place-question-badges"
-              style={placeQuestionBadgeStyle as never}
-            />
-            <SymbolLayer
-              filter={[
-                'all',
-                ['!', ['has', 'point_count']],
-                ['==', 'markerVariant', 'question'],
-              ]}
-              id="place-question-labels"
-              style={placeQuestionLabelStyle as never}
-            />
-          </ShapeSource>
+          {showPlaceMarkers ? (
+            <ShapeSource
+              cluster
+              clusterMaxZoomLevel={13}
+              clusterRadius={44}
+              id="places"
+              onPress={handleShapeSourcePress}
+              shape={placesFeatureCollection}
+            >
+              <CircleLayer
+                filter={['has', 'point_count']}
+                id="cluster-circles"
+                style={clusterCircleStyle as never}
+              />
+              <SymbolLayer
+                filter={['has', 'point_count']}
+                id="cluster-count"
+                style={clusterLabelStyle as never}
+              />
+              <CircleLayer
+                filter={[
+                  'all',
+                  ['!', ['has', 'point_count']],
+                  ['==', 'markerVariant', 'visited'],
+                ]}
+                id="place-points"
+                style={placeCircleStyle as never}
+              />
+              <CircleLayer
+                filter={[
+                  'all',
+                  ['!', ['has', 'point_count']],
+                  ['==', 'markerVariant', 'question'],
+                ]}
+                id="place-question-badges"
+                style={placeQuestionBadgeStyle as never}
+              />
+              <SymbolLayer
+                filter={[
+                  'all',
+                  ['!', ['has', 'point_count']],
+                  ['==', 'markerVariant', 'question'],
+                ]}
+                id="place-question-labels"
+                style={placeQuestionLabelStyle as never}
+              />
+            </ShapeSource>
+          ) : null}
         </MapView>
       )}
 
@@ -694,6 +746,16 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
             Discover places in Belarus
           </Text>
         </View>
+        {nearbyPlacesCount !== null ? (
+          <View className="mt-3 self-start rounded-2xl bg-slate-950/90 px-4 py-3">
+            <Text className="text-xs font-medium uppercase tracking-[0.8px] text-slate-300">
+              Within 5 km
+            </Text>
+            <Text className="mt-1 text-base font-semibold text-white">
+              {nearbyPlacesCount} place{nearbyPlacesCount === 1 ? '' : 's'}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View
