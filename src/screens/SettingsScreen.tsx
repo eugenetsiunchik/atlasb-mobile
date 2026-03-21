@@ -7,8 +7,9 @@ import {
   checkLocationPermission,
   openAppPermissionSettings,
 } from '../features/map/services/locationPermissionService';
+import { resetExplorationProgress } from '../features/territory';
 import { mapActions, selectLocationPermission } from '../features/map/store';
-import { useAppDispatch, useAppSelector } from '../store';
+import { selectIsAuthenticated, useAppDispatch, useAppSelector } from '../store';
 import { getLocalTileHost } from '../utils/localTiles';
 
 type SettingsScreenProps = {
@@ -22,9 +23,12 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   const dispatch = useAppDispatch();
   const locationPermission = useAppSelector(selectLocationPermission);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const detectedHost = React.useMemo(() => getLocalTileHost(), []);
   const usingAutoHost = !tilesHostOverride.trim();
   const [gpsResetMessage, setGpsResetMessage] = React.useState<string | null>(null);
+  const [isResettingProgress, setIsResettingProgress] = React.useState(false);
+  const [progressResetMessage, setProgressResetMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -74,6 +78,50 @@ export function SettingsScreen({
     }
   }, [dispatch]);
 
+  const handleResetProgressPress = React.useCallback(() => {
+    if (!isAuthenticated) {
+      setProgressResetMessage('Sign in to reset saved fog-of-war exploration progress.');
+      return;
+    }
+
+    Alert.alert(
+      'Reset exploration progress?',
+      'This will permanently clear your explored territory and fog-of-war progress for this account.',
+      [
+        {
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          style: 'destructive',
+          text: 'Reset',
+          onPress: () => {
+            setIsResettingProgress(true);
+            setProgressResetMessage(null);
+
+            dispatch(resetExplorationProgress())
+              .then(didReset => {
+                setProgressResetMessage(
+                  didReset
+                    ? 'Exploration progress was reset for this account.'
+                    : 'Sign in to reset saved fog-of-war exploration progress.',
+                );
+              })
+              .catch(() => {
+                Alert.alert(
+                  'Unable to reset progress',
+                  'Please try again in a moment.',
+                );
+              })
+              .finally(() => {
+                setIsResettingProgress(false);
+              });
+          },
+        },
+      ],
+    );
+  }, [dispatch, isAuthenticated]);
+
   return (
     <View className="flex-1 gap-3 p-4">
       <AppText variant="sectionTitle">Settings</AppText>
@@ -117,6 +165,26 @@ export function SettingsScreen({
           settings after clearing the cached GPS state.
         </AppText>
         {gpsResetMessage ? <AppText variant="caption">{gpsResetMessage}</AppText> : null}
+      </Card>
+
+      <Card className="gap-3 rounded-[28px] px-4 py-4">
+        <AppText variant="heading">Fog of war</AppText>
+        <AppText variant="caption" tone="muted">
+          Clear your saved explored territory and start map discovery from scratch.
+        </AppText>
+        <Button
+          disabled={!isAuthenticated}
+          label="Reset exploration progress"
+          loading={isResettingProgress}
+          onPress={handleResetProgressPress}
+          variant="destructive"
+        />
+        {!isAuthenticated ? (
+          <AppText variant="caption" tone="muted">
+            Sign in to reset saved exploration progress.
+          </AppText>
+        ) : null}
+        {progressResetMessage ? <AppText variant="caption">{progressResetMessage}</AppText> : null}
       </Card>
     </View>
   );

@@ -12,3 +12,5 @@ export const selectAuthSubmitting = (state: RootState) =>
 export const selectCurrentUser = (state: RootState) => state.auth.currentUser;
 export const selectIsAuthenticated = (state: RootState) =>
   state.auth.status === 'authenticated';
+export const selectEffectiveUserLevel = (state: RootState) =>
+  Math.max(1, state.auth.profile?.level ?? 1);

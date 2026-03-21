@@ -6,6 +6,7 @@ import {
 
 import { mapReducer } from '../features/map/store';
 import { questsReducer } from '../features/quests';
+import { territoryReducer } from '../features/territory';
 import { userPlaceStatesReducer } from '../features/userPlace';
 import { authReducer } from './auth';
 import { achievementsReducer } from './achievementsSlice';
@@ -16,6 +17,7 @@ export const store = configureStore({
     auth: authReducer,
     map: mapReducer,
     quests: questsReducer,
+    territory: territoryReducer,
     userPlaceStates: userPlaceStatesReducer,
   },
   middleware: getDefaultMiddleware =>

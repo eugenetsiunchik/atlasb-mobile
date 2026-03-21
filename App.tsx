@@ -22,6 +22,7 @@ import {
 
 import { AppTabBar, AuthPromptModal } from './src/components';
 import { useUserPlaceStatesSync } from './src/features/userPlace';
+import { useExploredTerritorySync } from './src/features/territory';
 import { installGlobalFirebaseErrorLogging, logFirebaseError } from './src/firebase';
 import { ensureUserProfile, subscribeToAuthStateChanges } from './src/services/auth';
 import {
@@ -221,6 +222,7 @@ function AppContent() {
   }, []);
 
   useUserPlaceStatesSync();
+  useExploredTerritorySync();
   useUserAchievementsSync();
   useQuestsSync();
   useQuestProgressEvaluation();

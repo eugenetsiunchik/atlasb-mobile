@@ -1,6 +1,7 @@
 export { authActions, authReducer } from './authSlice';
 export {
   selectAuthError,
+  selectEffectiveUserLevel,
   selectAuthInitializing,
   selectAuthModal,
   selectAuthProfile,

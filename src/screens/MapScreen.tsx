@@ -8,29 +8,67 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import {
+  Camera,
+  CircleLayer,
+  FillLayer,
+  MapView,
+  ShapeSource,
+  SymbolLayer,
+  UserLocation,
+} from '@maplibre/maplibre-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlacePreviewCard } from '../features/map/components/PlacePreviewCard';
 import { PlaceDetailsSheet } from '../features/map/components/PlaceDetailsSheet';
+import {
+  getAdaptiveFogOfWarRadiusMeters,
+  getFogOfWarRuleForLevel,
+} from '../features/map/config/fogOfWarProgression';
 import { loadResolvedMapStyle } from '../features/map/config/tileServer';
-import { requestLocationPermission } from '../features/map/services/locationPermissionService';
+import {
+  checkLocationPermission,
+  openAppPermissionSettings,
+  requestLocationPermission,
+} from '../features/map/services/locationPermissionService';
 import { subscribeToPlaces } from '../features/map/services/placesService';
+import {
+  TERRITORY_MAX_DISPLAY_GRID_ZOOM,
+  TERRITORY_MIN_DISPLAY_GRID_ZOOM,
+  persistExplorationForLocation,
+  selectAllExploredTerritoryCells,
+} from '../features/territory';
+import {
+  createFogOverlay,
+  type GeoJsonPolygonFeatureCollection,
+} from '../features/territory/utils/overlay';
+import {
+  getParentTerritoryCellId,
+  getTerritoryCellForCoordinate,
+  getTerritoryCellId,
+  getTerritoryCellsWithinRadius,
+} from '../features/territory/utils/grid';
+import { getDistanceBetweenCoordinatesMeters } from '../features/userPlace/utils/distance';
 import { logFirebaseError } from '../firebase';
 import {
   mapActions,
   selectAllMapPlaces,
+  selectAllUserPlaceStates,
+  selectEffectiveUserLevel,
   selectLocationPermission,
   selectMapError,
   selectMapFilters,
   selectMapPlacesStatus,
   selectSelectedPlace,
   selectUserLocation,
-} from '../features/map/store';
-import { useAppDispatch, useAppSelector } from '../store';
+  useAppDispatch,
+  useAppSelector,
+} from '../store';
 
 const BELARUS_CENTER: [number, number] = [27.9534, 53.7098];
 const BELARUS_ZOOM_LEVEL = 5.6;
+const MAX_EXPLORATION_ACCURACY_METERS = 250;
+const MIN_EXPLORATION_WRITE_INTERVAL_MS = 120_000;
 
 type GeoJsonPlaceFeature = {
   geometry: {
@@ -40,6 +78,8 @@ type GeoJsonPlaceFeature = {
   id: string;
   properties: {
     imageUrl: string | null;
+    markerLabel: string | null;
+    markerVariant: 'question' | 'visited';
     name: string;
     placeId: string;
     region: string;
@@ -60,8 +100,31 @@ type MapCameraRef = {
   }) => void;
 };
 
+type MapViewRef = {
+  getVisibleBounds?: () => Promise<[[number, number], [number, number]]>;
+  getZoom?: () => Promise<number>;
+};
+
 type MapScreenProps = {
   hostOverride?: string;
+};
+
+type MapViewportState = {
+  bounds: {
+    northEast: [number, number];
+    southWest: [number, number];
+  };
+  zoomLevel: number;
+};
+
+const EMPTY_PLACE_FEATURE_COLLECTION: GeoJsonPlaceFeatureCollection = {
+  features: [],
+  type: 'FeatureCollection',
+};
+
+const EMPTY_FOG_FEATURE_COLLECTION: GeoJsonPolygonFeatureCollection = {
+  features: [],
+  type: 'FeatureCollection',
 };
 
 function getCoordinateFromLocationEvent(location: unknown) {
@@ -75,9 +138,9 @@ function getCoordinateFromLocationEvent(location: unknown) {
       latitude?: number;
       longitude?: number;
     };
-    timestamp?: number;
     latitude?: number;
     longitude?: number;
+    timestamp?: number;
   };
 
   const accuracyMeters = candidate.coords?.accuracy;
@@ -96,6 +159,25 @@ function getCoordinateFromLocationEvent(location: unknown) {
     : null;
 }
 
+function getDisplayGridZoom(mapZoomLevel: number | null) {
+  if (typeof mapZoomLevel !== 'number' || !Number.isFinite(mapZoomLevel)) {
+    return TERRITORY_MIN_DISPLAY_GRID_ZOOM;
+  }
+
+  return Math.max(
+    TERRITORY_MIN_DISPLAY_GRID_ZOOM,
+    Math.min(TERRITORY_MAX_DISPLAY_GRID_ZOOM, Math.floor(mapZoomLevel)),
+  );
+}
+
+function constrainZoomLevel(zoomLevel: number, minZoomLevel: number, maxZoomLevel: number) {
+  return Math.min(Math.max(zoomLevel, minZoomLevel), maxZoomLevel);
+}
+
+function getExplorationMovementThresholdMeters(visibilityRadiusMeters: number) {
+  return Math.max(100, Math.min(2_000, Math.round(visibilityRadiusMeters * 0.6)));
+}
+
 export function MapScreen({ hostOverride = '' }: MapScreenProps) {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -106,12 +188,58 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
   const mapError = useAppSelector(selectMapError);
   const userLocation = useAppSelector(selectUserLocation);
   const locationPermission = useAppSelector(selectLocationPermission);
+  const effectiveUserLevel = useAppSelector(selectEffectiveUserLevel);
+  const exploredTerritoryCells = useAppSelector(selectAllExploredTerritoryCells);
+  const userPlaceStates = useAppSelector(selectAllUserPlaceStates);
 
   const [mapStyle, setMapStyle] = React.useState<string | Record<string, unknown>>('');
   const [mapStyleWarning, setMapStyleWarning] = React.useState<string | null>(null);
   const [isMapStyleLoading, setIsMapStyleLoading] = React.useState(true);
   const [isDetailsVisible, setIsDetailsVisible] = React.useState(false);
+  const [viewportState, setViewportState] = React.useState<MapViewportState | null>(null);
   const cameraRef = React.useRef<MapCameraRef | null>(null);
+  const mapViewRef = React.useRef<MapViewRef | null>(null);
+  const lastExplorationWriteRef = React.useRef<{
+    capturedAtMs: number;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const hasRequestedInitialPermissionRef = React.useRef(false);
+  const hasAutoCenteredOnUserLocationRef = React.useRef(false);
+  const fogOfWarRule = React.useMemo(
+    () => getFogOfWarRuleForLevel(effectiveUserLevel),
+    [effectiveUserLevel],
+  );
+  const currentVisibilityRadiusMeters = React.useMemo(
+    () =>
+      getAdaptiveFogOfWarRadiusMeters({
+        levelRule: fogOfWarRule,
+        userLocation,
+      }),
+    [fogOfWarRule, userLocation],
+  );
+  const displayGridZoom = React.useMemo(
+    () => getDisplayGridZoom(viewportState?.zoomLevel ?? null),
+    [viewportState?.zoomLevel],
+  );
+  const constrainedDefaultZoomLevel = React.useMemo(
+    () =>
+      constrainZoomLevel(
+        BELARUS_ZOOM_LEVEL,
+        fogOfWarRule.minZoomLevel,
+        fogOfWarRule.maxZoomLevel,
+      ),
+    [fogOfWarRule.maxZoomLevel, fogOfWarRule.minZoomLevel],
+  );
+  const visitedPlaceIds = React.useMemo(
+    () =>
+      new Set(
+        userPlaceStates
+          .filter(placeState => placeState.visited)
+          .map(placeState => placeState.placeId),
+      ),
+    [userPlaceStates],
+  );
 
   React.useEffect(() => {
     let isMounted = true;
@@ -163,36 +291,126 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
     );
   }, [filters, mapError, placesStatus]);
 
-  const placesFeatureCollection = React.useMemo<GeoJsonPlaceFeatureCollection>(
-    () => ({
-      features: places.map(place => ({
-        geometry: {
-          coordinates: [place.longitude, place.latitude],
-          type: 'Point',
+  const refreshViewportState = React.useCallback(async () => {
+    try {
+      const [visibleBounds, zoomLevel] = await Promise.all([
+        mapViewRef.current?.getVisibleBounds?.(),
+        mapViewRef.current?.getZoom?.(),
+      ]);
+
+      if (!visibleBounds || typeof zoomLevel !== 'number') {
+        return;
+      }
+
+      setViewportState({
+        bounds: {
+          northEast: visibleBounds[0],
+          southWest: visibleBounds[1],
         },
-        id: place.id,
-        properties: {
-          imageUrl: place.imageUrl,
-          name: place.name,
-          placeId: place.id,
-          region: place.region,
-        },
-        type: 'Feature',
-      })),
+        zoomLevel,
+      });
+    } catch (error) {
+      logFirebaseError('Map viewport refresh failed', { screen: 'MapScreen' }, error);
+    }
+  }, []);
+
+  const revealedDisplayCellIds = React.useMemo(() => {
+    const nextRevealedCellIds = new Set<string>();
+
+    exploredTerritoryCells.forEach(cell => {
+      const parentCellId = getParentTerritoryCellId(cell.cellId, displayGridZoom);
+
+      if (parentCellId) {
+        nextRevealedCellIds.add(parentCellId);
+      }
+    });
+
+    if (userLocation) {
+      getTerritoryCellsWithinRadius({
+        center: userLocation,
+        gridZoom: displayGridZoom,
+        radiusMeters: currentVisibilityRadiusMeters,
+      }).forEach(cell => {
+        nextRevealedCellIds.add(getTerritoryCellId(cell));
+      });
+    }
+
+    return nextRevealedCellIds;
+  }, [
+    displayGridZoom,
+    exploredTerritoryCells,
+    currentVisibilityRadiusMeters,
+    userLocation,
+  ]);
+
+  const placesFeatureCollection = React.useMemo<GeoJsonPlaceFeatureCollection>(() => {
+    console.log('viewportState', viewportState);
+    console.log('revealedDisplayCellIds', revealedDisplayCellIds);
+    console.log('places', places);
+    console.log('displayGridZoom', displayGridZoom);
+    if (!viewportState) {
+      return EMPTY_PLACE_FEATURE_COLLECTION;
+    }
+
+    return {
+      features: places
+        .filter(place =>
+          revealedDisplayCellIds.has(
+            getTerritoryCellId(
+              getTerritoryCellForCoordinate(
+                place.longitude,
+                place.latitude,
+                displayGridZoom,
+              ),
+            ),
+          ),
+        )
+        .map(place => ({
+          geometry: {
+            coordinates: [place.longitude, place.latitude],
+            type: 'Point',
+          },
+          id: place.id,
+          properties: {
+            imageUrl: place.imageUrl,
+            markerLabel: visitedPlaceIds.has(place.id) ? null : '?',
+            markerVariant: visitedPlaceIds.has(place.id) ? 'visited' : 'question',
+            name: place.name,
+            placeId: place.id,
+            region: place.region,
+          },
+          type: 'Feature',
+        })),
       type: 'FeatureCollection',
-    }),
-    [places],
-  );
+    };
+  }, [displayGridZoom, places, revealedDisplayCellIds, viewportState, visitedPlaceIds]);
+
+  console.log('placesFeatureCollection', placesFeatureCollection);
+  const fogOverlayShape = React.useMemo(() => {
+    if (!viewportState) {
+      return EMPTY_FOG_FEATURE_COLLECTION;
+    }
+
+    return createFogOverlay({
+      displayGridZoom,
+      revealedCellIds: revealedDisplayCellIds,
+      viewportBounds: viewportState.bounds,
+    });
+  }, [displayGridZoom, revealedDisplayCellIds, viewportState]);
 
   const moveCamera = React.useCallback(
     (centerCoordinate: [number, number], zoomLevel = BELARUS_ZOOM_LEVEL) => {
       cameraRef.current?.setCamera?.({
         animationDuration: 500,
         centerCoordinate,
-        zoomLevel,
+        zoomLevel: constrainZoomLevel(
+          zoomLevel,
+          fogOfWarRule.minZoomLevel,
+          fogOfWarRule.maxZoomLevel,
+        ),
       });
     },
-    [],
+    [fogOfWarRule.maxZoomLevel, fogOfWarRule.minZoomLevel],
   );
 
   const handleMapPress = React.useCallback(() => {
@@ -239,8 +457,42 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
       }
 
       dispatch(mapActions.userLocationUpdated(coordinate));
+
+      if (
+        typeof coordinate.accuracyMeters === 'number' &&
+        coordinate.accuracyMeters > MAX_EXPLORATION_ACCURACY_METERS
+      ) {
+        return;
+      }
+
+      const lastExplorationWrite = lastExplorationWriteRef.current;
+
+      if (lastExplorationWrite) {
+        const movementMeters = getDistanceBetweenCoordinatesMeters(lastExplorationWrite, coordinate);
+        const elapsedMs = coordinate.capturedAtMs - lastExplorationWrite.capturedAtMs;
+
+        if (
+          movementMeters < getExplorationMovementThresholdMeters(currentVisibilityRadiusMeters) &&
+          elapsedMs < MIN_EXPLORATION_WRITE_INTERVAL_MS
+        ) {
+          return;
+        }
+      }
+
+      lastExplorationWriteRef.current = {
+        capturedAtMs: coordinate.capturedAtMs,
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      };
+
+      dispatch(
+        persistExplorationForLocation({
+          center: coordinate,
+          radiusMeters: currentVisibilityRadiusMeters,
+        }),
+      );
     },
-    [dispatch],
+    [currentVisibilityRadiusMeters, dispatch],
   );
 
   const ensureLocationPermission = React.useCallback(async () => {
@@ -249,6 +501,56 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
     dispatch(mapActions.locationPermissionSet(permission));
     return permission;
   }, [dispatch]);
+
+  React.useEffect(() => {
+    if (hasRequestedInitialPermissionRef.current) {
+      return;
+    }
+
+    hasRequestedInitialPermissionRef.current = true;
+    let isMounted = true;
+
+    (async () => {
+      const existingPermission = await checkLocationPermission();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (existingPermission === 'granted') {
+        dispatch(mapActions.locationPermissionSet(existingPermission));
+        return;
+      }
+
+      if (existingPermission === 'blocked' || existingPermission === 'unavailable') {
+        dispatch(mapActions.locationPermissionSet(existingPermission));
+        return;
+      }
+
+      await ensureLocationPermission();
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dispatch, ensureLocationPermission]);
+
+  React.useEffect(() => {
+    if (!userLocation || locationPermission !== 'granted' || hasAutoCenteredOnUserLocationRef.current) {
+      return;
+    }
+
+    hasAutoCenteredOnUserLocationRef.current = true;
+    moveCamera(
+      [userLocation.longitude, userLocation.latitude],
+      Math.max(fogOfWarRule.minZoomLevel, 13.2),
+    );
+  }, [
+    fogOfWarRule.minZoomLevel,
+    locationPermission,
+    moveCamera,
+    userLocation,
+  ]);
 
   const handleNearMePress = React.useCallback(async () => {
     const permission = await ensureLocationPermission();
@@ -276,6 +578,26 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
     moveCamera([userLocation.longitude, userLocation.latitude], 11.8);
   }, [ensureLocationPermission, moveCamera, userLocation]);
 
+  const handleGrantLocationAccessPress = React.useCallback(async () => {
+    if (locationPermission === 'blocked') {
+      await openAppPermissionSettings();
+      return;
+    }
+
+    const permission = await ensureLocationPermission();
+
+    if (permission !== 'granted') {
+      Alert.alert(
+        'Location unavailable',
+        permission === 'blocked'
+          ? 'Location access is blocked for AtlasB. Open the app settings to enable map centering on your position.'
+          : permission === 'unavailable'
+            ? 'Location services are unavailable on this device right now.'
+            : 'Grant location permission to center the map on your current position.',
+      );
+    }
+  }, [ensureLocationPermission, locationPermission]);
+
   const handleOpenDetails = React.useCallback(() => {
     if (!selectedPlace) {
       return;
@@ -287,24 +609,33 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
   return (
     <View className="flex-1 bg-slate-950">
       {!!mapStyle && (
-        <MapLibreGL.MapView
+        <MapView
           mapStyle={mapStyle}
+          onDidFinishLoadingMap={refreshViewportState}
           onPress={handleMapPress}
+          onRegionDidChange={refreshViewportState}
+          ref={mapViewRef as never}
+          regionDidChangeDebounceTime={250}
           style={styles.map}
         >
-          <MapLibreGL.Camera
+          <Camera
             defaultSettings={{
               centerCoordinate: BELARUS_CENTER,
-              zoomLevel: BELARUS_ZOOM_LEVEL,
+              zoomLevel: constrainedDefaultZoomLevel,
             }}
+            minZoomLevel={fogOfWarRule.minZoomLevel}
+            maxZoomLevel={fogOfWarRule.maxZoomLevel}
             ref={cameraRef as never}
           />
-          <MapLibreGL.UserLocation
+          <UserLocation
             animated={false}
             onUpdate={handleUserLocationUpdate}
             visible
           />
-          <MapLibreGL.ShapeSource
+          <ShapeSource id="fog-of-war" shape={fogOverlayShape}>
+            <FillLayer id="fog-fill" style={fogFillStyle as never} />
+          </ShapeSource>
+          <ShapeSource
             cluster
             clusterMaxZoomLevel={13}
             clusterRadius={44}
@@ -312,23 +643,45 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
             onPress={handleShapeSourcePress}
             shape={placesFeatureCollection}
           >
-            <MapLibreGL.CircleLayer
+            <CircleLayer
               filter={['has', 'point_count']}
               id="cluster-circles"
               style={clusterCircleStyle as never}
             />
-            <MapLibreGL.SymbolLayer
+            <SymbolLayer
               filter={['has', 'point_count']}
               id="cluster-count"
               style={clusterLabelStyle as never}
             />
-            <MapLibreGL.CircleLayer
-              filter={['!', ['has', 'point_count']]}
+            <CircleLayer
+              filter={[
+                'all',
+                ['!', ['has', 'point_count']],
+                ['==', 'markerVariant', 'visited'],
+              ]}
               id="place-points"
               style={placeCircleStyle as never}
             />
-          </MapLibreGL.ShapeSource>
-        </MapLibreGL.MapView>
+            <CircleLayer
+              filter={[
+                'all',
+                ['!', ['has', 'point_count']],
+                ['==', 'markerVariant', 'question'],
+              ]}
+              id="place-question-badges"
+              style={placeQuestionBadgeStyle as never}
+            />
+            <SymbolLayer
+              filter={[
+                'all',
+                ['!', ['has', 'point_count']],
+                ['==', 'markerVariant', 'question'],
+              ]}
+              id="place-question-labels"
+              style={placeQuestionLabelStyle as never}
+            />
+          </ShapeSource>
+        </MapView>
       )}
 
       <View
@@ -385,9 +738,32 @@ export function MapScreen({ hostOverride = '' }: MapScreenProps) {
         <View className="absolute inset-x-4 top-[21rem] rounded-2xl bg-slate-900/92 px-4 py-3">
           <Text className="text-sm text-slate-200">
             {locationPermission === 'blocked'
-              ? 'Location permission is blocked in system settings. The map still works, but "Near me" and the user location puck need access.'
-              : 'Location permission is off. The map still works, but "Near me" and the user location puck need access.'}
+              ? 'Location permission is blocked in system settings. Previously explored territory stays visible, but nearby fog clearing and "Near me" need access.'
+              : 'Location permission is off. Previously explored territory stays visible, but nearby fog clearing and "Near me" need access.'}
           </Text>
+        </View>
+      )}
+
+      {(locationPermission === 'denied' || locationPermission === 'blocked') && (
+        <View className="absolute inset-0 items-center justify-center px-6" pointerEvents="box-none">
+          <View className="w-full max-w-sm rounded-3xl bg-slate-950/92 px-5 py-5">
+            <Text className="text-center text-lg font-semibold text-white">
+              Enable location access
+            </Text>
+            <Text className="mt-2 text-center text-sm text-slate-200">
+              {locationPermission === 'blocked'
+                ? 'Open app settings to grant location access and center the map on your position.'
+                : 'Grant location access so the map can open around your current position.'}
+            </Text>
+            <Pressable
+              className="mt-4 rounded-2xl bg-white px-4 py-3"
+              onPress={handleGrantLocationAccessPress}
+            >
+              <Text className="text-center text-sm font-semibold text-slate-950">
+                {locationPermission === 'blocked' ? 'Open settings' : 'Grant access'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -432,6 +808,11 @@ const styles = StyleSheet.create({
   },
 });
 
+const fogFillStyle = {
+  fillColor: '#020617',
+  fillOpacity: 0.84,
+};
+
 const clusterCircleStyle = {
   circleColor: '#f0b268',
   circleOpacity: 0.92,
@@ -453,4 +834,20 @@ const placeCircleStyle = {
   circleRadius: 8,
   circleStrokeColor: '#ffffff',
   circleStrokeWidth: 2,
+};
+
+const placeQuestionBadgeStyle = {
+  circleColor: '#0f172a',
+  circleRadius: 11,
+  circleStrokeColor: '#fbbf24',
+  circleStrokeWidth: 2,
+};
+
+const placeQuestionLabelStyle = {
+  textAllowOverlap: true,
+  textColor: '#fbbf24',
+  textField: '{markerLabel}',
+  textFont: ['Open Sans Bold'],
+  textIgnorePlacement: true,
+  textSize: 14,
 };
