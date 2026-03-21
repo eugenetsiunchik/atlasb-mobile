@@ -14,13 +14,15 @@ export function PlacePreviewCard({
   onOpenDetails,
   place,
 }: PlacePreviewCardProps) {
+  const previewImageUrl = place.thumbnailUrl ?? place.imageUrl;
+
   return (
     <View className="rounded-3xl bg-slate-950/96 p-3 shadow-lg">
       <View className="flex-row items-start gap-3">
         <View className="h-24 w-24 overflow-hidden rounded-2xl bg-slate-800">
-          {place.imageUrl ? (
+          {previewImageUrl ? (
             <Image
-              source={{ uri: place.imageUrl }}
+              source={{ uri: previewImageUrl }}
               className="h-full w-full"
               resizeMode="cover"
             />

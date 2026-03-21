@@ -179,7 +179,7 @@ export function AppTabBar({
       </CurvedBottomBarNavigator>
       <CreateActionFanOut
         accentColor={tabBarAccentColor}
-        bottomOffset={safeAreaBottom + 16}
+        bottomOffset={safeAreaBottom}
         iconColor={sceneBackgroundColor}
         items={createActionItems}
         menuBackgroundColor={createActionMenuBackgroundColor}

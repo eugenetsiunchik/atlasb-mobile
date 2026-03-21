@@ -1,5 +1,7 @@
 import {
   collection,
+  doc,
+  getDoc,
   onSnapshot,
   query,
   type FirebaseFirestoreTypes,
@@ -15,12 +17,27 @@ import {
 import type { MapCoordinate, MapFilters, PlaceMapItem } from '../types';
 
 const PLACES_COLLECTION_NAME = 'places';
+const PLACE_MEDIA_SUBCOLLECTION_NAME = 'media';
 const ACTIVE_PLACE_STATUS = 'active';
 const DEFAULT_VISIT_VERIFICATION_RADIUS_METERS = 150;
 
 type FirestoreGeoPointLike = {
   latitude: number;
   longitude: number;
+};
+
+type FirestorePlacePhoto = {
+  originalUrl?: string;
+  reviewStatus?: string;
+  status?: string;
+  thumbnails?: {
+    large?: string;
+    small?: string;
+  };
+};
+
+type NormalizedPlaceRecord = PlaceMapItem & {
+  coverMediaId: string | null;
 };
 
 const REGION_LABELS_BY_ID: Record<string, string> = {
@@ -47,6 +64,10 @@ function isGeoPointLike(value: unknown): value is FirestoreGeoPointLike {
     typeof value.latitude === 'number' &&
     typeof value.longitude === 'number'
   );
+}
+
+function readString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function readCoordinate(data: Record<string, unknown>): MapCoordinate | null {
@@ -119,7 +140,7 @@ function getRegionLabel(regionId: string) {
 
 function normalizePlace(
   document: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>,
-): PlaceMapItem | null {
+): NormalizedPlaceRecord | null {
   const data = document.data();
 
   if (!isObject(data)) {
@@ -127,15 +148,11 @@ function normalizePlace(
   }
 
   const coordinate = readCoordinate(data);
-  const name = typeof data.name === 'string' ? data.name.trim() : '';
+  const name = readString(data.name) ?? '';
   const regionId = readRegionId(data);
   const region = getRegionLabel(regionId);
-  const imageUrl =
-    typeof data.imageUrl === 'string' && data.imageUrl.trim()
-      ? data.imageUrl.trim()
-      : typeof data.image === 'string' && data.image.trim()
-        ? data.image.trim()
-        : null;
+  const imageUrl = readString(data.imageUrl) ?? readString(data.image);
+  const coverMediaId = readString(data.coverMediaId);
   const allowManualVisitMarking =
     data.allowManualVisitMarking === true || data.manualVisitAllowed === true;
   const visitVerificationRadiusMetersCandidate =
@@ -158,14 +175,95 @@ function normalizePlace(
   return {
     id: document.id,
     imageUrl,
+    thumbnailUrl: imageUrl,
     latitude: coordinate.latitude,
     longitude: coordinate.longitude,
     name,
     region,
     regionId,
+    coverMediaId,
     allowManualVisitMarking,
     visitVerificationRadiusMeters,
   };
+}
+
+function getPlaceDocument(placeId: string) {
+  return doc(collection(getFirebaseFirestore(), PLACES_COLLECTION_NAME), placeId);
+}
+
+function getPlaceCoverMediaDocument(placeId: string, mediaId: string) {
+  return doc(collection(getPlaceDocument(placeId), PLACE_MEDIA_SUBCOLLECTION_NAME), mediaId);
+}
+
+function normalizeCoverMediaUrls(data: FirestorePlacePhoto | undefined) {
+  if (!data || data.status !== 'READY') {
+    return null;
+  }
+
+  if (typeof data.reviewStatus === 'string' && data.reviewStatus === 'REJECTED') {
+    return null;
+  }
+
+  const small = readString(data.thumbnails?.small);
+  const large = readString(data.thumbnails?.large);
+  const original = readString(data.originalUrl);
+
+  if (!small && !large && !original) {
+    return null;
+  }
+
+  return {
+    imageUrl: large ?? original ?? small,
+    thumbnailUrl: small ?? large ?? original,
+  };
+}
+
+async function hydratePlacesWithCoverMedia(places: NormalizedPlaceRecord[]) {
+  return Promise.all(
+    places.map(async place => {
+      if (!place.coverMediaId) {
+        return place;
+      }
+
+      const mediaPath = `${PLACES_COLLECTION_NAME}/${place.id}/${PLACE_MEDIA_SUBCOLLECTION_NAME}/${place.coverMediaId}`;
+
+      try {
+        const coverMediaSnapshot = await getDoc(
+          getPlaceCoverMediaDocument(place.id, place.coverMediaId),
+        );
+
+        if (!coverMediaSnapshot.exists) {
+          return place;
+        }
+
+        const coverMediaUrls = normalizeCoverMediaUrls(
+          coverMediaSnapshot.data() as FirestorePlacePhoto | undefined,
+        );
+
+        if (!coverMediaUrls) {
+          return place;
+        }
+
+        return {
+          ...place,
+          imageUrl: coverMediaUrls.imageUrl,
+          thumbnailUrl: coverMediaUrls.thumbnailUrl,
+        };
+      } catch (error) {
+        logFirebaseError(
+          'Firestore get place cover media failed',
+          {
+            operation: 'getDoc',
+            path: mediaPath,
+            placeId: place.id,
+          },
+          error,
+        );
+
+        return place;
+      }
+    }),
+  );
 }
 
 function applyFilters(places: PlaceMapItem[], filters: MapFilters) {
@@ -232,14 +330,21 @@ export function subscribeToPlaces(
     placesCollection,
     where('status', '==', ACTIVE_PLACE_STATUS),
   );
+  let isActive = true;
 
-  return onSnapshot(
+  const unsubscribe = onSnapshot(
     activePlacesQuery,
-    (snapshot: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData>) => {
-      const normalizedPlaces = snapshot.docs
+    async (snapshot: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData>) => {
+      const normalizedPlaceRecords = snapshot.docs
         .map(normalizePlace)
-        .filter((place): place is PlaceMapItem => place !== null)
+        .filter((place): place is NormalizedPlaceRecord => place !== null)
         .sort((left, right) => left.name.localeCompare(right.name));
+      const normalizedPlaces = await hydratePlacesWithCoverMedia(normalizedPlaceRecords);
+
+      if (!isActive) {
+        return;
+      }
+
       const filteredPlaces = applyFilters(normalizedPlaces, filters);
 
       logLoadedPlaces({
@@ -268,4 +373,9 @@ export function subscribeToPlaces(
       );
     },
   );
+
+  return () => {
+    isActive = false;
+    unsubscribe();
+  };
 }

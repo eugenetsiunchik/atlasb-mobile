@@ -20,6 +20,7 @@ export type PlaceMapItem = {
   allowManualVisitMarking: boolean;
   id: string;
   imageUrl: string | null;
+  thumbnailUrl: string | null;
   latitude: number;
   longitude: number;
   name: string;

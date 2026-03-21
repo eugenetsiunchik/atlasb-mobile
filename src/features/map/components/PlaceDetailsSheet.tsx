@@ -37,13 +37,14 @@ export function PlaceDetailsSheet({ onClose, place }: PlaceDetailsSheetProps) {
     usePlaceVisitCheckIn(place);
 
   const visitSummary = getVisitSummary(userPlaceState);
+  const detailImageUrl = place.imageUrl ?? place.thumbnailUrl;
 
   return (
     <View className="rounded-t-3xl bg-slate-950 px-4 pb-8 pt-4">
       <View className="mb-4 h-1.5 w-12 self-center rounded-full bg-slate-700" />
-      {place.imageUrl ? (
+      {detailImageUrl ? (
         <Image
-          source={{ uri: place.imageUrl }}
+          source={{ uri: detailImageUrl }}
           className="h-56 w-full rounded-3xl"
           resizeMode="cover"
         />

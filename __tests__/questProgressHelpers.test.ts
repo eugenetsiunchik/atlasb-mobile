@@ -11,6 +11,7 @@ function createPlace(id: string, name: string, region: string): PlaceMapItem {
     allowManualVisitMarking: false,
     id,
     imageUrl: null,
+    thumbnailUrl: null,
     latitude: 0,
     longitude: 0,
     name,
