@@ -69,7 +69,7 @@ function MapTabScreen() {
   return <MapScreen hostOverride={tilesHostOverride} />;
 }
 
-function SettingsTabScreen() {
+function DevSettingsTabScreen() {
   const { tilesHostOverride, setTilesHostOverride } = useTilesHostOverride();
 
   return (
@@ -242,7 +242,7 @@ function AppContent() {
           questsComponent={QuestsTabScreen}
           safeAreaBottom={safeAreaInsets.bottom}
           sceneBackgroundColor={sceneBackgroundColor}
-          settingsComponent={SettingsTabScreen}
+          devSettingsComponent={DevSettingsTabScreen}
         />
       </NavigationContainer>
       <AuthPromptModal />

@@ -124,9 +124,10 @@ export function SettingsScreen({
 
   return (
     <View className="flex-1 gap-3 p-4">
-      <AppText variant="sectionTitle">Settings</AppText>
+      <AppText variant="sectionTitle">Dev Settings</AppText>
       <AppText tone="muted">
-        Configure how the local vector tile map connects during development.
+        Developer tools for local map configuration, GPS permission resets, and fog-of-war
+        troubleshooting.
       </AppText>
 
       <Card className="gap-3 rounded-[28px] px-4 py-4">

@@ -20,7 +20,7 @@ export type RootTabParamList = {
   Map: undefined;
   Quests: undefined;
   Profile: undefined;
-  Settings: undefined;
+  Dev: undefined;
 };
 
 type TabBarIconProps = {
@@ -40,7 +40,7 @@ type AppTabBarProps = {
   questsComponent: React.ComponentType;
   safeAreaBottom: number;
   sceneBackgroundColor: string;
-  settingsComponent: React.ComponentType;
+  devSettingsComponent: React.ComponentType;
 };
 
 const CurvedBottomBarNavigator =
@@ -59,7 +59,7 @@ function getTabIcon(
       return User;
     case 'Quests':
       return ScrollText;
-    case 'Settings':
+    case 'Dev':
       return focused ? Settings2 : Settings;
   }
 }
@@ -87,7 +87,7 @@ export function AppTabBar({
   questsComponent,
   safeAreaBottom,
   sceneBackgroundColor,
-  settingsComponent,
+  devSettingsComponent,
 }: AppTabBarProps) {
   const themeMode: ThemeMode = isDarkMode ? 'dark' : 'light';
   const tabBarAccentColor = theme.tabBar.accent[themeMode];
@@ -175,7 +175,7 @@ export function AppTabBar({
         <CurvedBottomBarScreen component={mapComponent} name="Map" position="LEFT" />
         <CurvedBottomBarScreen component={questsComponent} name="Quests" position="LEFT" />
         <CurvedBottomBarScreen component={profileComponent} name="Profile" position="RIGHT" />
-        <CurvedBottomBarScreen component={settingsComponent} name="Settings" position="RIGHT" />
+        <CurvedBottomBarScreen component={devSettingsComponent} name="Dev" position="RIGHT" />
       </CurvedBottomBarNavigator>
       <CreateActionFanOut
         accentColor={tabBarAccentColor}
