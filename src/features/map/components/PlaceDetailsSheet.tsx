@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
+import { usePlaceImage } from '../hooks';
 import { usePlaceVisitCheckIn, useUserPlaceState } from '../../userPlace';
 import type { PlaceMapItem } from '../types';
 
@@ -35,9 +36,10 @@ export function PlaceDetailsSheet({ onClose, place }: PlaceDetailsSheetProps) {
   const userPlaceState = useUserPlaceState(place.id);
   const { canMarkManualVisit, checkIn, feedback, isSubmitting, markManualVisit } =
     usePlaceVisitCheckIn(place);
+  const { imageUrl, thumbnailUrl } = usePlaceImage(place);
 
   const visitSummary = getVisitSummary(userPlaceState);
-  const detailImageUrl = place.imageUrl ?? place.thumbnailUrl;
+  const detailImageUrl = imageUrl ?? thumbnailUrl;
 
   return (
     <View className="rounded-t-3xl bg-slate-950 px-4 pb-8 pt-4">

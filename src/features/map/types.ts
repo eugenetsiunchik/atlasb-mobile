@@ -18,6 +18,7 @@ export type MapUserLocation = MapCoordinate & {
 
 export type PlaceMapItem = {
   allowManualVisitMarking: boolean;
+  coverMediaId?: string | null;
   id: string;
   imageUrl: string | null;
   thumbnailUrl: string | null;

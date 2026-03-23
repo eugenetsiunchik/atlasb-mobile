@@ -20,7 +20,7 @@ export type RootTabParamList = {
   Map: undefined;
   Quests: undefined;
   Profile: undefined;
-  Dev: undefined;
+  Settings: undefined;
 };
 
 type TabBarIconProps = {
@@ -59,7 +59,7 @@ function getTabIcon(
       return User;
     case 'Quests':
       return ScrollText;
-    case 'Dev':
+    case 'Settings':
       return focused ? Settings2 : Settings;
   }
 }
@@ -175,7 +175,11 @@ export function AppTabBar({
         <CurvedBottomBarScreen component={mapComponent} name="Map" position="LEFT" />
         <CurvedBottomBarScreen component={questsComponent} name="Quests" position="LEFT" />
         <CurvedBottomBarScreen component={profileComponent} name="Profile" position="RIGHT" />
-        <CurvedBottomBarScreen component={devSettingsComponent} name="Dev" position="RIGHT" />
+        <CurvedBottomBarScreen
+          component={devSettingsComponent}
+          name="Settings"
+          position="RIGHT"
+        />
       </CurvedBottomBarNavigator>
       <CreateActionFanOut
         accentColor={tabBarAccentColor}

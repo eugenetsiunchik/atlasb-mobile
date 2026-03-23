@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
+import { usePlaceImage } from '../hooks';
 import type { PlaceMapItem } from '../types';
 
 type PlacePreviewCardProps = {
@@ -14,7 +15,8 @@ export function PlacePreviewCard({
   onOpenDetails,
   place,
 }: PlacePreviewCardProps) {
-  const previewImageUrl = place.thumbnailUrl ?? place.imageUrl;
+  const { imageUrl, thumbnailUrl } = usePlaceImage(place);
+  const previewImageUrl = thumbnailUrl ?? imageUrl;
 
   return (
     <View className="rounded-3xl bg-slate-950/96 p-3 shadow-lg">

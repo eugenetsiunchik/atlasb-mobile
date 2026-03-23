@@ -1,8 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Badge, Card } from '../components';
+import { AppText, Badge, Card, TabScrollScreen } from '../components';
 import {
   getQuestObjectiveSummary,
   selectActiveQuestCards,
@@ -15,7 +14,6 @@ import {
   useAppSelector,
   selectIsAuthenticated,
 } from '../store';
-import { getBottomTabContentPadding } from '../utils';
 
 type ActiveQuestsScreenProps = {
   onOpenQuest: (questId: string) => void;
@@ -74,7 +72,6 @@ function QuestCard({
 }
 
 export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
-  const { bottom } = useSafeAreaInsets();
   const questsStatus = useAppSelector(selectQuestsStatus);
   const questsError = useAppSelector(selectQuestsError);
   const progressStatus = useAppSelector(selectQuestProgressStatus);
@@ -85,13 +82,7 @@ export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   return (
-    <ScrollView
-      className="flex-1"
-      contentContainerStyle={[
-        styles.contentContainer,
-        { paddingBottom: getBottomTabContentPadding(bottom) },
-      ]}
-    >
+    <TabScrollScreen contentContainerStyle={styles.contentContainer}>
       <View className="gap-1">
         <AppText variant="sectionTitle">Quests</AppText>
         <AppText tone="muted">
@@ -172,7 +163,7 @@ export function ActiveQuestsScreen({ onOpenQuest }: ActiveQuestsScreenProps) {
           ))}
         </View>
       ) : null}
-    </ScrollView>
+    </TabScrollScreen>
   );
 }
 

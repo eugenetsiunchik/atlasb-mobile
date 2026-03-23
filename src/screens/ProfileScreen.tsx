@@ -1,8 +1,14 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { AppText, AuthButton, Badge, Card, ProfileAchievementsSection } from '../components';
+import {
+  AppText,
+  AuthButton,
+  Badge,
+  Card,
+  ProfileAchievementsSection,
+  TabScrollScreen,
+} from '../components';
 import { requireAuthForAction } from '../services/auth';
 import {
   authActions,
@@ -14,7 +20,6 @@ import {
   useAppDispatch,
   useAppSelector,
 } from '../store';
-import { getBottomTabContentPadding } from '../utils';
 
 function formatCreatedAt(value: Date | null) {
   if (!value) {
@@ -25,7 +30,6 @@ function formatCreatedAt(value: Date | null) {
 }
 
 export function ProfileScreen() {
-  const { bottom } = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const authInitializing = useAppSelector(selectAuthInitializing);
   const currentUser = useAppSelector(selectCurrentUser);
@@ -115,13 +119,7 @@ export function ProfileScreen() {
   const profileInitial = profile?.displayName?.charAt(0)?.toUpperCase() || 'A';
 
   return (
-    <ScrollView
-      className="flex-1"
-      contentContainerStyle={[
-        styles.contentContainer,
-        { paddingBottom: getBottomTabContentPadding(bottom) },
-      ]}
-    >
+    <TabScrollScreen contentContainerStyle={styles.contentContainer}>
       <View className="gap-1">
         <AppText variant="sectionTitle">Profile</AppText>
         <AppText tone="muted">
@@ -176,7 +174,7 @@ export function ProfileScreen() {
       </Card>
 
       <ProfileAchievementsSection />
-    </ScrollView>
+    </TabScrollScreen>
   );
 }
 

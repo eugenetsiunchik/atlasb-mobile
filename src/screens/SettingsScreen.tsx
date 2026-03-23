@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, AppState, View } from 'react-native';
 
-import { AppText, Button, Card, Input } from '../components';
+import { AppText, Button, Card, Input, TabScrollScreen } from '../components';
 import { activeMapEnvironment } from '../config/activeMapEnvironment';
 import {
   checkLocationPermission,
@@ -135,104 +135,108 @@ export function SettingsScreen({
   }, [onShowPlaceMarkersChange, showPlaceMarkers]);
 
   return (
-    <View className="flex-1 gap-3 p-4">
-      <AppText variant="sectionTitle">Dev Settings</AppText>
-      <AppText tone="muted">
-        Developer tools for local map configuration, GPS permission resets, and fog-of-war
-        troubleshooting.
-      </AppText>
+    <TabScrollScreen contentContainerClassName="p-4">
+      <View className="gap-3">
+        <AppText variant="sectionTitle">Settings</AppText>
+        <AppText tone="muted">
+          Developer tools for local map configuration, GPS permission resets, and fog-of-war
+          troubleshooting.
+        </AppText>
 
-      <Card className="gap-3 rounded-[28px] px-4 py-4">
-        <AppText variant="heading">Tiles</AppText>
-        <Input
-          inputClassName="rounded-xl px-3 py-2 text-sm"
-          keyboardType="url"
-          label="Tiles host"
-          onChangeText={onTilesHostOverrideChange}
-          placeholder={detectedHost ?? '192.168.x.x'}
-          size="sm"
-          value={tilesHostOverride}
-        />
-        <AppText variant="caption" tone="muted">
-          Leave empty to use the detected host automatically.
-        </AppText>
-        <AppText variant="caption">
-          Active environment: {activeMapEnvironment.name}
-        </AppText>
-        <AppText variant="caption">
-          Current host: {usingAutoHost ? detectedHost ?? 'not detected' : tilesHostOverride.trim()}
-        </AppText>
-        {activeMapEnvironment.baseUrl ? (
-          <AppText variant="caption">
-            Base URL: {activeMapEnvironment.baseUrl}
-          </AppText>
-        ) : null}
-      </Card>
-
-      <Card className="gap-3 rounded-[28px] px-4 py-4">
-        <AppText variant="heading">Map markers</AppText>
-        <AppText variant="caption">
-          Place markers are currently {showPlaceMarkers ? 'visible' : 'hidden'} on the map.
-        </AppText>
-        <Button
-          label={showPlaceMarkers ? 'Hide place markers' : 'Show place markers'}
-          onPress={handleTogglePlaceMarkers}
-          variant="secondary"
-        />
-        <AppText variant="caption" tone="muted">
-          Use this to quickly inspect the map without place markers rendered on top.
-        </AppText>
-      </Card>
-
-      <Card className="gap-3 rounded-[28px] px-4 py-4">
-        <AppText variant="heading">Zoom</AppText>
-        <Input
-          inputClassName="rounded-xl px-3 py-2 text-sm"
-          keyboardType="decimal-pad"
-          label="Max zoom override"
-          onChangeText={onMaxZoomOverrideChange}
-          placeholder="Leave empty"
-          size="sm"
-          value={maxZoomOverride}
-        />
-        <AppText variant="caption" tone="muted">
-          Leave empty to use the default max zoom for the current fog-of-war level.
-        </AppText>
-        <AppText variant="caption" tone="muted">
-          Values below the current minimum zoom are clamped automatically.
-        </AppText>
-      </Card>
-
-      <Card className="gap-3 rounded-[28px] px-4 py-4">
-        <AppText variant="heading">Location</AppText>
-        <AppText variant="caption">Current GPS grant: {locationPermission}</AppText>
-        <Button label="Reset GPS grants" onPress={handleResetGpsGrants} variant="secondary" />
-        <AppText variant="caption" tone="muted">
-          AtlasB cannot revoke OS location permission itself, so this opens the app&apos;s system
-          settings after clearing the cached GPS state.
-        </AppText>
-        {gpsResetMessage ? <AppText variant="caption">{gpsResetMessage}</AppText> : null}
-      </Card>
-
-      <Card className="gap-3 rounded-[28px] px-4 py-4">
-        <AppText variant="heading">Fog of war</AppText>
-        <AppText variant="caption" tone="muted">
-          Clear your saved explored territory and start map discovery from scratch.
-        </AppText>
-        <Button
-          disabled={!isAuthenticated}
-          label="Reset exploration progress"
-          loading={isResettingProgress}
-          onPress={handleResetProgressPress}
-          variant="destructive"
-        />
-        {!isAuthenticated ? (
+        <Card className="gap-3 rounded-[28px] px-4 py-4">
+          <AppText variant="heading">Tiles</AppText>
+          <Input
+            inputClassName="rounded-xl px-3 py-2 text-sm"
+            keyboardType="url"
+            label="Tiles host"
+            onChangeText={onTilesHostOverrideChange}
+            placeholder={detectedHost ?? '192.168.x.x'}
+            size="sm"
+            value={tilesHostOverride}
+          />
           <AppText variant="caption" tone="muted">
-            Sign in to reset saved exploration progress.
+            Leave empty to use the detected host automatically.
           </AppText>
-        ) : null}
-        {progressResetMessage ? <AppText variant="caption">{progressResetMessage}</AppText> : null}
-      </Card>
-    </View>
+          <AppText variant="caption">
+            Active environment: {activeMapEnvironment.name}
+          </AppText>
+          <AppText variant="caption">
+            Current host: {usingAutoHost ? detectedHost ?? 'not detected' : tilesHostOverride.trim()}
+          </AppText>
+          {activeMapEnvironment.baseUrl ? (
+            <AppText variant="caption">
+              Base URL: {activeMapEnvironment.baseUrl}
+            </AppText>
+          ) : null}
+        </Card>
+
+        <Card className="gap-3 rounded-[28px] px-4 py-4">
+          <AppText variant="heading">Map markers</AppText>
+          <AppText variant="caption">
+            Place markers are currently {showPlaceMarkers ? 'visible' : 'hidden'} on the map.
+          </AppText>
+          <Button
+            label={showPlaceMarkers ? 'Hide place markers' : 'Show place markers'}
+            onPress={handleTogglePlaceMarkers}
+            variant="secondary"
+          />
+          <AppText variant="caption" tone="muted">
+            Use this to quickly inspect the map without place markers rendered on top.
+          </AppText>
+        </Card>
+
+        <Card className="gap-3 rounded-[28px] px-4 py-4">
+          <AppText variant="heading">Zoom</AppText>
+          <Input
+            inputClassName="rounded-xl px-3 py-2 text-sm"
+            keyboardType="decimal-pad"
+            label="Max zoom override"
+            onChangeText={onMaxZoomOverrideChange}
+            placeholder="Leave empty"
+            size="sm"
+            value={maxZoomOverride}
+          />
+          <AppText variant="caption" tone="muted">
+            Leave empty to use the default max zoom for the current fog-of-war level.
+          </AppText>
+          <AppText variant="caption" tone="muted">
+            Values below the current minimum zoom are clamped automatically.
+          </AppText>
+        </Card>
+
+        <Card className="gap-3 rounded-[28px] px-4 py-4">
+          <AppText variant="heading">Location</AppText>
+          <AppText variant="caption">Current GPS grant: {locationPermission}</AppText>
+          <Button label="Reset GPS grants" onPress={handleResetGpsGrants} variant="secondary" />
+          <AppText variant="caption" tone="muted">
+            AtlasB cannot revoke OS location permission itself, so this opens the app&apos;s system
+            settings after clearing the cached GPS state.
+          </AppText>
+          {gpsResetMessage ? <AppText variant="caption">{gpsResetMessage}</AppText> : null}
+        </Card>
+
+        <Card className="gap-3 rounded-[28px] px-4 py-4">
+          <AppText variant="heading">Fog of war</AppText>
+          <AppText variant="caption" tone="muted">
+            Clear your saved explored territory and start map discovery from scratch.
+          </AppText>
+          <Button
+            disabled={!isAuthenticated}
+            label="Reset exploration progress"
+            loading={isResettingProgress}
+            onPress={handleResetProgressPress}
+            variant="destructive"
+          />
+          {!isAuthenticated ? (
+            <AppText variant="caption" tone="muted">
+              Sign in to reset saved exploration progress.
+            </AppText>
+          ) : null}
+          {progressResetMessage ? (
+            <AppText variant="caption">{progressResetMessage}</AppText>
+          ) : null}
+        </Card>
+      </View>
+    </TabScrollScreen>
   );
 }

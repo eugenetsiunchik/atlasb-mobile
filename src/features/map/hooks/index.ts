@@ -4,6 +4,8 @@ import { useAppDispatch, useAppSelector } from '../../../store';
 import { subscribeToPlaces } from '../services/placesService';
 import { mapActions, selectMapFilters } from '../store';
 
+export { usePlaceImage } from './usePlaceImage';
+
 export function useMapPlacesSync() {
   const dispatch = useAppDispatch();
   const filters = useAppSelector(selectMapFilters);

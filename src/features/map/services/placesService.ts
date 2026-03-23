@@ -36,6 +36,8 @@ type FirestorePlacePhoto = {
   };
 };
 
+type PlaceImageUrls = Pick<PlaceMapItem, 'imageUrl' | 'thumbnailUrl'>;
+
 type NormalizedPlaceRecord = PlaceMapItem & {
   coverMediaId: string | null;
 };
@@ -53,6 +55,8 @@ const REGION_LABELS_BY_ID: Record<string, string> = {
   vitebsk: 'Vitebsk',
   unknown: 'Unknown region',
 };
+
+const coverMediaUrlRequests = new Map<string, Promise<PlaceImageUrls | null>>();
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -73,6 +77,7 @@ function readString(value: unknown) {
 function readCoordinate(data: Record<string, unknown>): MapCoordinate | null {
   const nestedCandidates = [
     data.geo,
+    data.settlementGeo,
     data.location,
     data.coordinates,
     data.coordinate,
@@ -108,6 +113,23 @@ function readCoordinate(data: Record<string, unknown>): MapCoordinate | null {
   return null;
 }
 
+function readImageUrls(data: Record<string, unknown>): PlaceImageUrls {
+  const imageUrl =
+    readString(data.imageUrl) ??
+    readString(data.coverImageUrl) ??
+    readString(data.originalUrl) ??
+    readString(data.image);
+  const thumbnailUrl =
+    readString(data.thumbnailUrl) ??
+    readString(data.coverThumbnailUrl) ??
+    imageUrl;
+
+  return {
+    imageUrl,
+    thumbnailUrl,
+  };
+}
+
 function toTitleCase(value: string) {
   return value
     .split(' ')
@@ -128,7 +150,13 @@ function readRegionId(data: Record<string, unknown>) {
   return 'unknown';
 }
 
-function getRegionLabel(regionId: string) {
+function getRegionLabel(regionId: string, data: Record<string, unknown>) {
+  const oblastName = readString(data.oblastName);
+
+  if (oblastName) {
+    return oblastName;
+  }
+
   const normalizedRegionId = regionId.trim().toLowerCase();
 
   if (REGION_LABELS_BY_ID[normalizedRegionId]) {
@@ -150,8 +178,8 @@ function normalizePlace(
   const coordinate = readCoordinate(data);
   const name = readString(data.name) ?? '';
   const regionId = readRegionId(data);
-  const region = getRegionLabel(regionId);
-  const imageUrl = readString(data.imageUrl) ?? readString(data.image);
+  const region = getRegionLabel(regionId, data);
+  const { imageUrl, thumbnailUrl } = readImageUrls(data);
   const coverMediaId = readString(data.coverMediaId);
   const allowManualVisitMarking =
     data.allowManualVisitMarking === true || data.manualVisitAllowed === true;
@@ -174,14 +202,14 @@ function normalizePlace(
 
   return {
     id: document.id,
+    coverMediaId,
     imageUrl,
-    thumbnailUrl: imageUrl,
+    thumbnailUrl,
     latitude: coordinate.latitude,
     longitude: coordinate.longitude,
     name,
     region,
     regionId,
-    coverMediaId,
     allowManualVisitMarking,
     visitVerificationRadiusMeters,
   };
@@ -218,52 +246,70 @@ function normalizeCoverMediaUrls(data: FirestorePlacePhoto | undefined) {
   };
 }
 
-async function hydratePlacesWithCoverMedia(places: NormalizedPlaceRecord[]) {
-  return Promise.all(
-    places.map(async place => {
-      if (!place.coverMediaId) {
-        return place;
+async function fetchCoverMediaUrls(placeId: string, mediaId: string) {
+  const cacheKey = `${placeId}:${mediaId}`;
+  const cachedRequest = coverMediaUrlRequests.get(cacheKey);
+
+  if (cachedRequest) {
+    return cachedRequest;
+  }
+
+  const request = (async () => {
+    const mediaPath = `${PLACES_COLLECTION_NAME}/${placeId}/${PLACE_MEDIA_SUBCOLLECTION_NAME}/${mediaId}`;
+
+    try {
+      const coverMediaSnapshot = await getDoc(getPlaceCoverMediaDocument(placeId, mediaId));
+
+      if (!coverMediaSnapshot.exists) {
+        coverMediaUrlRequests.delete(cacheKey);
+        return null;
       }
 
-      const mediaPath = `${PLACES_COLLECTION_NAME}/${place.id}/${PLACE_MEDIA_SUBCOLLECTION_NAME}/${place.coverMediaId}`;
+      const coverMediaUrls = normalizeCoverMediaUrls(
+        coverMediaSnapshot.data() as FirestorePlacePhoto | undefined,
+      );
 
-      try {
-        const coverMediaSnapshot = await getDoc(
-          getPlaceCoverMediaDocument(place.id, place.coverMediaId),
-        );
-
-        if (!coverMediaSnapshot.exists) {
-          return place;
-        }
-
-        const coverMediaUrls = normalizeCoverMediaUrls(
-          coverMediaSnapshot.data() as FirestorePlacePhoto | undefined,
-        );
-
-        if (!coverMediaUrls) {
-          return place;
-        }
-
-        return {
-          ...place,
-          imageUrl: coverMediaUrls.imageUrl,
-          thumbnailUrl: coverMediaUrls.thumbnailUrl,
-        };
-      } catch (error) {
-        logFirebaseError(
-          'Firestore get place cover media failed',
-          {
-            operation: 'getDoc',
-            path: mediaPath,
-            placeId: place.id,
-          },
-          error,
-        );
-
-        return place;
+      if (!coverMediaUrls) {
+        coverMediaUrlRequests.delete(cacheKey);
       }
-    }),
-  );
+
+      return coverMediaUrls;
+    } catch (error) {
+      coverMediaUrlRequests.delete(cacheKey);
+      logFirebaseError(
+        'Firestore get place cover media failed',
+        {
+          operation: 'getDoc',
+          path: mediaPath,
+          placeId,
+        },
+        error,
+      );
+
+      return null;
+    }
+  })();
+
+  coverMediaUrlRequests.set(cacheKey, request);
+
+  return request;
+}
+
+export async function loadPlaceImageUrls(
+  place: Pick<PlaceMapItem, 'coverMediaId' | 'id' | 'imageUrl' | 'thumbnailUrl'>,
+): Promise<PlaceImageUrls | null> {
+  if (place.imageUrl || place.thumbnailUrl) {
+    return {
+      imageUrl: place.imageUrl,
+      thumbnailUrl: place.thumbnailUrl,
+    };
+  }
+
+  if (!place.coverMediaId) {
+    return null;
+  }
+
+  return fetchCoverMediaUrls(place.id, place.coverMediaId);
 }
 
 function applyFilters(places: PlaceMapItem[], filters: MapFilters) {
@@ -334,12 +380,12 @@ export function subscribeToPlaces(
 
   const unsubscribe = onSnapshot(
     activePlacesQuery,
-    async (snapshot: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData>) => {
+    (snapshot: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData>) => {
       const normalizedPlaceRecords = snapshot.docs
         .map(normalizePlace)
         .filter((place): place is NormalizedPlaceRecord => place !== null)
         .sort((left, right) => left.name.localeCompare(right.name));
-      const normalizedPlaces = await hydratePlacesWithCoverMedia(normalizedPlaceRecords);
+      const normalizedPlaces: PlaceMapItem[] = normalizedPlaceRecords;
 
       if (!isActive) {
         return;

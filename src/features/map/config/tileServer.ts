@@ -149,7 +149,7 @@ export async function loadResolvedMapStyle(hostOverride = ''): Promise<{
       config,
       mapStyle: createFallbackRasterStyle(config),
       warning:
-        'Tile server host is not configured. Set a map environment or override the host in Dev Settings.',
+        'Tile server host is not configured. Set a map environment or override the host in Settings.',
     };
   }
 
