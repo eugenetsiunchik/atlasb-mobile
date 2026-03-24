@@ -15,16 +15,12 @@ import {
   logFirebaseError,
 } from '../../../firebase';
 import type { MapCoordinate, MapFilters, PlaceMapItem } from '../types';
+import { resolvePlaceCoordinate } from './placeCoordinateResolution';
 
 const PLACES_COLLECTION_NAME = 'places';
 const PLACE_MEDIA_SUBCOLLECTION_NAME = 'media';
 const ACTIVE_PLACE_STATUS = 'active';
 const DEFAULT_VISIT_VERIFICATION_RADIUS_METERS = 150;
-
-type FirestoreGeoPointLike = {
-  latitude: number;
-  longitude: number;
-};
 
 type FirestorePlacePhoto = {
   originalUrl?: string;
@@ -62,55 +58,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isGeoPointLike(value: unknown): value is FirestoreGeoPointLike {
-  return (
-    isObject(value) &&
-    typeof value.latitude === 'number' &&
-    typeof value.longitude === 'number'
-  );
-}
-
 function readString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function readCoordinate(data: Record<string, unknown>): MapCoordinate | null {
-  const nestedCandidates = [
-    data.geo,
-    data.settlementGeo,
-    data.location,
-    data.coordinates,
-    data.coordinate,
-    data.geoPoint,
-  ];
-
-  for (const candidate of nestedCandidates) {
-    if (isGeoPointLike(candidate)) {
-      return {
-        latitude: candidate.latitude,
-        longitude: candidate.longitude,
-      };
-    }
-  }
-
-  const latitudeCandidates = [data.latitude, data.lat];
-  const longitudeCandidates = [data.longitude, data.lng, data.lon];
-
-  const latitude = latitudeCandidates.find(
-    candidate => typeof candidate === 'number',
-  );
-  const longitude = longitudeCandidates.find(
-    candidate => typeof candidate === 'number',
-  );
-
-  if (typeof latitude === 'number' && typeof longitude === 'number') {
-    return {
-      latitude,
-      longitude,
-    };
-  }
-
-  return null;
 }
 
 function readImageUrls(data: Record<string, unknown>): PlaceImageUrls {
@@ -166,6 +115,14 @@ function getRegionLabel(regionId: string, data: Record<string, unknown>) {
   return toTitleCase(normalizedRegionId.replace(/[-_]+/g, ' '));
 }
 
+function readDiscoveryQuestLabel(data: Record<string, unknown>) {
+  return (
+    readString(data.discoveryQuestLabel) ??
+    readString(data.locationQuestLabel) ??
+    readString(data.questLabel)
+  );
+}
+
 function normalizePlace(
   document: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>,
 ): NormalizedPlaceRecord | null {
@@ -175,12 +132,13 @@ function normalizePlace(
     return null;
   }
 
-  const coordinate = readCoordinate(data);
   const name = readString(data.name) ?? '';
   const regionId = readRegionId(data);
   const region = getRegionLabel(regionId, data);
+  const coordinate = resolvePlaceCoordinate(data, regionId);
   const { imageUrl, thumbnailUrl } = readImageUrls(data);
   const coverMediaId = readString(data.coverMediaId);
+  const discoveryQuestLabel = readDiscoveryQuestLabel(data);
   const allowManualVisitMarking =
     data.allowManualVisitMarking === true || data.manualVisitAllowed === true;
   const visitVerificationRadiusMetersCandidate =
@@ -201,16 +159,25 @@ function normalizePlace(
   }
 
   return {
+    allowManualVisitMarking:
+      coordinate.coordinatePrecision === 'approximate' ? false : allowManualVisitMarking,
+    approximateRadiusMeters: coordinate.approximateRadiusMeters,
+    coordinatePrecision: coordinate.coordinatePrecision,
+    coordinateSource: coordinate.coordinateSource,
     id: document.id,
     coverMediaId,
+    discoveryQuestLabel:
+      coordinate.coordinatePrecision === 'approximate'
+        ? discoveryQuestLabel ?? `Search quest in ${region}`
+        : null,
     imageUrl,
     thumbnailUrl,
     latitude: coordinate.latitude,
     longitude: coordinate.longitude,
     name,
+    preciseLocationMissing: coordinate.preciseLocationMissing,
     region,
     regionId,
-    allowManualVisitMarking,
     visitVerificationRadiusMeters,
   };
 }

@@ -11,6 +11,20 @@ export type MapCoordinate = {
   longitude: number;
 };
 
+export type PlaceCoordinatePrecision = 'exact' | 'approximate';
+
+export type PlaceCoordinateSource =
+  | 'approximateGeo'
+  | 'coordinate'
+  | 'coordinates'
+  | 'geo'
+  | 'geoPoint'
+  | 'latLng'
+  | 'location'
+  | 'regionCenter'
+  | 'regionGeo'
+  | 'settlementGeo';
+
 export type MapUserLocation = MapCoordinate & {
   accuracyMeters: number | null;
   capturedAtMs: number;
@@ -18,13 +32,18 @@ export type MapUserLocation = MapCoordinate & {
 
 export type PlaceMapItem = {
   allowManualVisitMarking: boolean;
+  approximateRadiusMeters: number | null;
+  coordinatePrecision: PlaceCoordinatePrecision;
+  coordinateSource: PlaceCoordinateSource;
   coverMediaId?: string | null;
+  discoveryQuestLabel: string | null;
   id: string;
   imageUrl: string | null;
   thumbnailUrl: string | null;
   latitude: number;
   longitude: number;
   name: string;
+  preciseLocationMissing: boolean;
   region: string;
   regionId: string;
   visitVerificationRadiusMeters: number;

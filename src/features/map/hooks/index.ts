@@ -5,6 +5,7 @@ import { subscribeToPlaces } from '../services/placesService';
 import { mapActions, selectMapFilters } from '../store';
 
 export { usePlaceImage } from './usePlaceImage';
+export { usePlaceLocationProposal } from './usePlaceLocationProposal';
 
 export function useMapPlacesSync() {
   const dispatch = useAppDispatch();

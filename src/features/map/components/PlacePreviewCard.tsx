@@ -17,6 +17,7 @@ export function PlacePreviewCard({
 }: PlacePreviewCardProps) {
   const { imageUrl, thumbnailUrl } = usePlaceImage(place);
   const previewImageUrl = thumbnailUrl ?? imageUrl;
+  const isApproximatePlace = place.coordinatePrecision === 'approximate';
 
   return (
     <View className="rounded-3xl bg-slate-950/96 p-3 shadow-lg">
@@ -38,12 +39,24 @@ export function PlacePreviewCard({
         </View>
         <View className="flex-1 gap-2">
           <View className="gap-1">
+            {isApproximatePlace ? (
+              <View className="self-start rounded-full bg-sky-500/20 px-2.5 py-1">
+                <Text className="text-[11px] font-semibold uppercase tracking-[0.8px] text-sky-100">
+                  Approximate pin
+                </Text>
+              </View>
+            ) : null}
             <Text className="text-lg font-semibold text-white" numberOfLines={2}>
               {place.name}
             </Text>
             <Text className="text-sm text-slate-300" numberOfLines={1}>
               {place.region}
             </Text>
+            {isApproximatePlace ? (
+              <Text className="text-xs leading-5 text-slate-400" numberOfLines={2}>
+                {place.discoveryQuestLabel ?? 'Help AtlasB find the real location.'}
+              </Text>
+            ) : null}
           </View>
           <View className="flex-row gap-2">
             <Pressable
@@ -51,7 +64,7 @@ export function PlacePreviewCard({
               onPress={onOpenDetails}
             >
               <Text className="text-center text-sm font-semibold text-slate-950">
-                Open details
+                {isApproximatePlace ? 'Open quest' : 'Open details'}
               </Text>
             </Pressable>
             <Pressable

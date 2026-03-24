@@ -78,8 +78,9 @@ type GeoJsonPlaceFeature = {
   id: string;
   properties: {
     imageUrl: string | null;
+    isSelected: 0 | 1;
     markerLabel: string | null;
-    markerVariant: 'question' | 'visited';
+    markerVariant: 'approximate' | 'question' | 'visited';
     name: string;
     placeId: string;
     region: string;
@@ -189,6 +190,72 @@ function areCoordinatesClose(
     Math.abs(left[0] - right[0]) <= tolerance &&
     Math.abs(left[1] - right[1]) <= tolerance
   );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function metersToLatitudeDegrees(meters: number) {
+  return meters / 111_320;
+}
+
+function metersToLongitudeDegrees(meters: number, latitude: number) {
+  const latitudeRadians = (latitude * Math.PI) / 180;
+  const metersPerDegree = 111_320 * Math.cos(latitudeRadians);
+
+  if (Math.abs(metersPerDegree) < 0.000001) {
+    return 0;
+  }
+
+  return meters / metersPerDegree;
+}
+
+function getApproximateSpreadRadiusMeters(zoomLevel: number) {
+  return clamp(2400 / 2 ** Math.max(0, zoomLevel - 5), 150, 1200);
+}
+
+function getApproximateMarkerRingPosition(index: number) {
+  let remainingIndex = index;
+  let ring = 0;
+
+  while (true) {
+    const capacity = ring === 0 ? 1 : ring * 6;
+
+    if (remainingIndex < capacity) {
+      return {
+        positionInRing: remainingIndex,
+        ring,
+        ringCapacity: capacity,
+      };
+    }
+
+    remainingIndex -= capacity;
+    ring += 1;
+  }
+}
+
+function getApproximateMarkerDisplayCoordinate(params: {
+  baseCoordinate: [number, number];
+  baseRadiusMeters: number;
+  index: number;
+}): [number, number] {
+  const { baseCoordinate, baseRadiusMeters, index } = params;
+
+  if (index === 0) {
+    return baseCoordinate;
+  }
+
+  const { positionInRing, ring, ringCapacity } = getApproximateMarkerRingPosition(index);
+  const distanceMeters = baseRadiusMeters * ring;
+  const angle = (positionInRing / ringCapacity) * Math.PI * 2 - Math.PI / 2;
+  const longitudeOffset = metersToLongitudeDegrees(
+    Math.cos(angle) * distanceMeters,
+    baseCoordinate[1],
+  );
+  const latitudeOffset = metersToLatitudeDegrees(Math.sin(angle) * distanceMeters);
+
+  return [baseCoordinate[0] + longitudeOffset, baseCoordinate[1] + latitudeOffset];
 }
 
 function areViewportStatesEquivalent(
@@ -394,38 +461,89 @@ export function MapScreen({
       return EMPTY_PLACE_FEATURE_COLLECTION;
     }
 
-    return {
-      features: places
-        .filter(place =>
-          revealedDisplayCellIds.has(
-            getTerritoryCellId(
-              getTerritoryCellForCoordinate(
-                place.longitude,
-                place.latitude,
-                displayGridZoom,
-              ),
-            ),
+    const visiblePlaces = places.filter(place =>
+      revealedDisplayCellIds.has(
+        getTerritoryCellId(
+          getTerritoryCellForCoordinate(
+            place.longitude,
+            place.latitude,
+            displayGridZoom,
           ),
-        )
-        .map(place => ({
-          geometry: {
-            coordinates: [place.longitude, place.latitude],
-            type: 'Point',
-          },
-          id: place.id,
-          properties: {
-            imageUrl: place.imageUrl,
-            markerLabel: visitedPlaceIds.has(place.id) ? null : '?',
-            markerVariant: visitedPlaceIds.has(place.id) ? 'visited' : 'question',
-            name: place.name,
-            placeId: place.id,
-            region: place.region,
-          },
-          type: 'Feature',
-        })),
+        ),
+      ),
+    );
+    const approximateGroupIndices = new Map<string, number>();
+    const approximateGroupSizes = new Map<string, number>();
+    const approximateSpreadRadiusMeters = getApproximateSpreadRadiusMeters(
+      viewportState.zoomLevel,
+    );
+
+    visiblePlaces.forEach(place => {
+      if (place.coordinatePrecision !== 'approximate') {
+        return;
+      }
+
+      const key = `${place.longitude.toFixed(5)}:${place.latitude.toFixed(5)}`;
+      approximateGroupSizes.set(key, (approximateGroupSizes.get(key) ?? 0) + 1);
+    });
+
+    return {
+      features: visiblePlaces.map(place => {
+          const isVisited = visitedPlaceIds.has(place.id);
+          const baseCoordinate: [number, number] = [place.longitude, place.latitude];
+          const approximateGroupKey = `${place.longitude.toFixed(5)}:${place.latitude.toFixed(5)}`;
+          const approximateGroupSize = approximateGroupSizes.get(approximateGroupKey) ?? 0;
+          const nextApproximateIndex = approximateGroupIndices.get(approximateGroupKey) ?? 0;
+          const displayCoordinate =
+            place.coordinatePrecision === 'approximate' && approximateGroupSize > 1
+              ? getApproximateMarkerDisplayCoordinate({
+                  baseCoordinate,
+                  baseRadiusMeters: approximateSpreadRadiusMeters,
+                  index: nextApproximateIndex,
+                })
+              : baseCoordinate;
+
+          if (place.coordinatePrecision === 'approximate') {
+            approximateGroupIndices.set(approximateGroupKey, nextApproximateIndex + 1);
+          }
+
+          return {
+            geometry: {
+              coordinates: displayCoordinate,
+              type: 'Point',
+            },
+            id: place.id,
+            properties: {
+              imageUrl: place.imageUrl,
+              isSelected: selectedPlace?.id === place.id ? 1 : 0,
+              markerLabel: isVisited
+                ? null
+                : place.coordinatePrecision === 'approximate'
+                  ? 'Q'
+                  : '?',
+              markerVariant: isVisited
+                ? 'visited'
+                : place.coordinatePrecision === 'approximate'
+                  ? 'approximate'
+                  : 'question',
+              name: place.name,
+              placeId: place.id,
+              region: place.region,
+            },
+            type: 'Feature',
+          };
+        }),
       type: 'FeatureCollection',
     };
-  }, [displayGridZoom, places, revealedDisplayCellIds, showPlaceMarkers, viewportState, visitedPlaceIds]);
+  }, [
+    displayGridZoom,
+    places,
+    revealedDisplayCellIds,
+    selectedPlace?.id,
+    showPlaceMarkers,
+    viewportState,
+    visitedPlaceIds,
+  ]);
 
   const fogOverlayShape = React.useMemo(() => {
     if (!viewportState) {
@@ -708,6 +826,16 @@ export function MapScreen({
                 filter={[
                   'all',
                   ['!', ['has', 'point_count']],
+                  ['==', 'isSelected', 1],
+                  ['==', 'markerVariant', 'approximate'],
+                ]}
+                id="place-approximate-selection-ring"
+                style={placeApproximateSelectionRingStyle as never}
+              />
+              <CircleLayer
+                filter={[
+                  'all',
+                  ['!', ['has', 'point_count']],
                   ['==', 'markerVariant', 'visited'],
                 ]}
                 id="place-points"
@@ -722,6 +850,15 @@ export function MapScreen({
                 id="place-question-badges"
                 style={placeQuestionBadgeStyle as never}
               />
+              <CircleLayer
+                filter={[
+                  'all',
+                  ['!', ['has', 'point_count']],
+                  ['==', 'markerVariant', 'approximate'],
+                ]}
+                id="place-approximate-badges"
+                style={placeApproximateBadgeStyle as never}
+              />
               <SymbolLayer
                 filter={[
                   'all',
@@ -730,6 +867,15 @@ export function MapScreen({
                 ]}
                 id="place-question-labels"
                 style={placeQuestionLabelStyle as never}
+              />
+              <SymbolLayer
+                filter={[
+                  'all',
+                  ['!', ['has', 'point_count']],
+                  ['==', 'markerVariant', 'approximate'],
+                ]}
+                id="place-approximate-labels"
+                style={placeApproximateLabelStyle as never}
               />
             </ShapeSource>
           ) : null}
@@ -912,4 +1058,29 @@ const placeQuestionLabelStyle = {
   textFont: ['Open Sans Bold'],
   textIgnorePlacement: true,
   textSize: 14,
+};
+
+const placeApproximateSelectionRingStyle = {
+  circleBlur: 0.15,
+  circleColor: '#38bdf8',
+  circleOpacity: 0.18,
+  circleRadius: 22,
+  circleStrokeColor: '#bae6fd',
+  circleStrokeWidth: 2,
+};
+
+const placeApproximateBadgeStyle = {
+  circleColor: '#082f49',
+  circleRadius: 13,
+  circleStrokeColor: '#7dd3fc',
+  circleStrokeWidth: 2,
+};
+
+const placeApproximateLabelStyle = {
+  textAllowOverlap: true,
+  textColor: '#e0f2fe',
+  textField: '{markerLabel}',
+  textFont: ['Open Sans Bold'],
+  textIgnorePlacement: true,
+  textSize: 13,
 };

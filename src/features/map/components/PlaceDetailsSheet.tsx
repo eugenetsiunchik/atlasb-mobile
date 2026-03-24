@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
-import { usePlaceImage } from '../hooks';
+import { usePlaceImage, usePlaceLocationProposal } from '../hooks';
 import { usePlaceVisitCheckIn, useUserPlaceState } from '../../userPlace';
 import type { PlaceMapItem } from '../types';
 
@@ -32,14 +32,40 @@ function getVisitSummary(params: {
   return 'Visit saved';
 }
 
+function formatApproximateRadius(value: number | null) {
+  if (!value) {
+    return 'the marked area';
+  }
+
+  if (value >= 1000) {
+    const kilometers = value / 1000;
+    return `${Number.isInteger(kilometers) ? kilometers : kilometers.toFixed(1)} km radius`;
+  }
+
+  return `${Math.round(value)}m radius`;
+}
+
 export function PlaceDetailsSheet({ onClose, place }: PlaceDetailsSheetProps) {
   const userPlaceState = useUserPlaceState(place.id);
   const { canMarkManualVisit, checkIn, feedback, isSubmitting, markManualVisit } =
     usePlaceVisitCheckIn(place);
+  const {
+    feedback: proposalFeedback,
+    isSubmitting: isSubmittingProposal,
+    submitPreciseLocation,
+  } = usePlaceLocationProposal(place);
   const { imageUrl, thumbnailUrl } = usePlaceImage(place);
 
   const visitSummary = getVisitSummary(userPlaceState);
   const detailImageUrl = imageUrl ?? thumbnailUrl;
+  const isApproximatePlace = place.coordinatePrecision === 'approximate';
+  const approximateRadiusLabel = formatApproximateRadius(place.approximateRadiusMeters);
+  const statusBadgeLabel = isApproximatePlace
+    ? userPlaceState.discovered
+      ? 'Location submitted'
+      : 'Discovery quest'
+    : visitSummary;
+  const activeFeedback = isApproximatePlace ? proposalFeedback : feedback;
 
   return (
     <View className="rounded-t-3xl bg-slate-950 px-4 pb-8 pt-4">
@@ -60,86 +86,144 @@ export function PlaceDetailsSheet({ onClose, place }: PlaceDetailsSheetProps) {
         <View className="flex-1">
           <Text className="text-2xl font-semibold text-white">{place.name}</Text>
           <Text className="mt-1 text-base text-slate-300">{place.region}</Text>
+          {isApproximatePlace ? (
+            <Text className="mt-2 text-sm leading-6 text-slate-400">
+              {place.discoveryQuestLabel ?? 'Help AtlasB discover the real location for this place.'}
+            </Text>
+          ) : null}
         </View>
-        {visitSummary ? (
-          <View className="rounded-full bg-emerald-500/18 px-3 py-1">
-            <Text className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
-              {visitSummary}
+        {statusBadgeLabel ? (
+          <View
+            className={`rounded-full px-3 py-1 ${
+              isApproximatePlace ? 'bg-sky-500/18' : 'bg-emerald-500/18'
+            }`}
+          >
+            <Text
+              className={`text-xs font-semibold uppercase tracking-wide ${
+                isApproximatePlace ? 'text-sky-100' : 'text-emerald-200'
+              }`}
+            >
+              {statusBadgeLabel}
             </Text>
           </View>
         ) : null}
       </View>
 
-      <View className="mt-4 rounded-2xl bg-slate-900 px-4 py-3">
-        <Text className="text-sm font-medium text-slate-100">
-          GPS radius: {Math.round(place.visitVerificationRadiusMeters)}m
-        </Text>
-        <Text className="mt-1 text-sm leading-6 text-slate-300">
-          Tap check in when you are at the place. AtlasB uses your latest device location
-          fix to verify the visit.
-        </Text>
-        {place.allowManualVisitMarking ? (
-          <Text className="mt-2 text-sm leading-6 text-slate-400">
-            Manual fallback is enabled for this place if GPS says you are too far away.
-          </Text>
-        ) : null}
+      <View
+        className={`mt-4 rounded-2xl px-4 py-3 ${
+          isApproximatePlace ? 'bg-sky-500/10' : 'bg-slate-900'
+        }`}
+      >
+        {isApproximatePlace ? (
+          <>
+            <Text className="text-sm font-medium text-sky-100">
+              Approximate search area: {approximateRadiusLabel}
+            </Text>
+            <Text className="mt-1 text-sm leading-6 text-slate-300">
+              This pin marks a likely area, not the confirmed spot. Explore around the marked
+              location and submit your current GPS fix when you reach the real place.
+            </Text>
+            <Text className="mt-2 text-sm leading-6 text-slate-400">
+              AtlasB stores your proposed coordinates for review before the public pin moves.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text className="text-sm font-medium text-slate-100">
+              GPS radius: {Math.round(place.visitVerificationRadiusMeters)}m
+            </Text>
+            <Text className="mt-1 text-sm leading-6 text-slate-300">
+              Tap check in when you are at the place. AtlasB uses your latest device location
+              fix to verify the visit.
+            </Text>
+            {place.allowManualVisitMarking ? (
+              <Text className="mt-2 text-sm leading-6 text-slate-400">
+                Manual fallback is enabled for this place if GPS says you are too far away.
+              </Text>
+            ) : null}
+          </>
+        )}
       </View>
 
-      {feedback ? (
+      {activeFeedback ? (
         <View
           className={`mt-4 rounded-2xl px-4 py-3 ${
-            feedback.tone === 'success'
+            activeFeedback.tone === 'success'
               ? 'bg-emerald-500/16'
-              : feedback.tone === 'danger'
+              : activeFeedback.tone === 'danger'
                 ? 'bg-rose-500/18'
                 : 'bg-amber-500/18'
           }`}
         >
           <Text
             className={`text-sm leading-6 ${
-              feedback.tone === 'success'
+              activeFeedback.tone === 'success'
                 ? 'text-emerald-100'
-                : feedback.tone === 'danger'
+                : activeFeedback.tone === 'danger'
                   ? 'text-rose-100'
                   : 'text-amber-100'
             }`}
           >
-            {feedback.text}
+            {activeFeedback.text}
           </Text>
         </View>
       ) : null}
 
-      {!userPlaceState.visited ? (
-        <Pressable
-          className={`mt-6 rounded-2xl px-4 py-3 ${
-            isSubmitting ? 'bg-amber-300/70' : 'bg-amber-400'
-          }`}
-          disabled={isSubmitting}
-          onPress={checkIn}
-        >
-          <Text className="text-center text-base font-semibold text-slate-950">
-            {isSubmitting ? 'Checking in...' : 'Check in'}
-          </Text>
-        </Pressable>
+      {isApproximatePlace ? (
+        userPlaceState.discovered ? (
+          <View className="mt-6 rounded-2xl bg-sky-500/14 px-4 py-3">
+            <Text className="text-center text-base font-semibold text-sky-100">
+              Precise location already submitted
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            className={`mt-6 rounded-2xl px-4 py-3 ${
+              isSubmittingProposal ? 'bg-sky-300/60' : 'bg-sky-400'
+            }`}
+            disabled={isSubmittingProposal}
+            onPress={submitPreciseLocation}
+          >
+            <Text className="text-center text-base font-semibold text-slate-950">
+              {isSubmittingProposal ? 'Submitting precise location...' : 'Submit precise location'}
+            </Text>
+          </Pressable>
+        )
       ) : (
-        <View className="mt-6 rounded-2xl bg-slate-900 px-4 py-3">
-          <Text className="text-center text-base font-semibold text-slate-100">
-            Visit already recorded
-          </Text>
-        </View>
-      )}
+        <>
+          {!userPlaceState.visited ? (
+            <Pressable
+              className={`mt-6 rounded-2xl px-4 py-3 ${
+                isSubmitting ? 'bg-amber-300/70' : 'bg-amber-400'
+              }`}
+              disabled={isSubmitting}
+              onPress={checkIn}
+            >
+              <Text className="text-center text-base font-semibold text-slate-950">
+                {isSubmitting ? 'Checking in...' : 'Check in'}
+              </Text>
+            </Pressable>
+          ) : (
+            <View className="mt-6 rounded-2xl bg-slate-900 px-4 py-3">
+              <Text className="text-center text-base font-semibold text-slate-100">
+                Visit already recorded
+              </Text>
+            </View>
+          )}
 
-      {!userPlaceState.visited && canMarkManualVisit ? (
-        <Pressable
-          className="mt-3 rounded-2xl border border-slate-700 px-4 py-3"
-          disabled={isSubmitting}
-          onPress={markManualVisit}
-        >
-          <Text className="text-center text-base font-semibold text-slate-100">
-            Mark manually
-          </Text>
-        </Pressable>
-      ) : null}
+          {!userPlaceState.visited && canMarkManualVisit ? (
+            <Pressable
+              className="mt-3 rounded-2xl border border-slate-700 px-4 py-3"
+              disabled={isSubmitting}
+              onPress={markManualVisit}
+            >
+              <Text className="text-center text-base font-semibold text-slate-100">
+                Mark manually
+              </Text>
+            </Pressable>
+          ) : null}
+        </>
+      )}
 
       <Pressable className="mt-3 rounded-2xl border border-slate-700 px-4 py-3" onPress={onClose}>
         <Text className="text-center text-base font-semibold text-slate-100">

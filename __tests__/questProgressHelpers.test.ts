@@ -9,12 +9,17 @@ import type { UserPlaceState } from '../src/features/userPlace';
 function createPlace(id: string, name: string, region: string): PlaceMapItem {
   return {
     allowManualVisitMarking: false,
+    approximateRadiusMeters: null,
+    coordinatePrecision: 'exact',
+    coordinateSource: 'geo',
+    discoveryQuestLabel: null,
     id,
     imageUrl: null,
     thumbnailUrl: null,
     latitude: 0,
     longitude: 0,
     name,
+    preciseLocationMissing: false,
     region,
     regionId: region.toLowerCase(),
     visitVerificationRadiusMeters: 150,
