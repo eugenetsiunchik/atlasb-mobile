@@ -12,6 +12,7 @@ import {
   Camera,
   CircleLayer,
   FillLayer,
+  LineLayer,
   MapView,
   ShapeSource,
   SymbolLayer,
@@ -69,6 +70,7 @@ const BELARUS_ZOOM_LEVEL = 5.6;
 const MAX_EXPLORATION_ACCURACY_METERS = 250;
 const MIN_EXPLORATION_WRITE_INTERVAL_MS = 120_000;
 const PLACE_COUNT_RADIUS_METERS = 5_000;
+const APPROXIMATE_SELECTION_HALO_RADIUS_METERS = 1_000;
 
 type GeoJsonPlaceFeature = {
   geometry: {
@@ -90,6 +92,21 @@ type GeoJsonPlaceFeature = {
 
 type GeoJsonPlaceFeatureCollection = {
   features: GeoJsonPlaceFeature[];
+  type: 'FeatureCollection';
+};
+
+type GeoJsonSelectionHaloFeatureCollection = {
+  features: Array<{
+    geometry: {
+      coordinates: number[][][];
+      type: 'Polygon';
+    };
+    id: string;
+    properties: {
+      kind: 'approximate-selection-halo';
+    };
+    type: 'Feature';
+  }>;
   type: 'FeatureCollection';
 };
 
@@ -126,6 +143,11 @@ const EMPTY_PLACE_FEATURE_COLLECTION: GeoJsonPlaceFeatureCollection = {
 };
 
 const EMPTY_FOG_FEATURE_COLLECTION: GeoJsonPolygonFeatureCollection = {
+  features: [],
+  type: 'FeatureCollection',
+};
+
+const EMPTY_SELECTION_HALO_FEATURE_COLLECTION: GeoJsonSelectionHaloFeatureCollection = {
   features: [],
   type: 'FeatureCollection',
 };
@@ -256,6 +278,28 @@ function getApproximateMarkerDisplayCoordinate(params: {
   const latitudeOffset = metersToLatitudeDegrees(Math.sin(angle) * distanceMeters);
 
   return [baseCoordinate[0] + longitudeOffset, baseCoordinate[1] + latitudeOffset];
+}
+
+function createHaloPolygon(params: {
+  center: [number, number];
+  radiusMeters: number;
+  steps?: number;
+}) {
+  const { center, radiusMeters, steps = 48 } = params;
+  const coordinates: number[][] = [];
+
+  for (let step = 0; step <= steps; step += 1) {
+    const angle = (step / steps) * Math.PI * 2;
+    const eastMeters = Math.cos(angle) * radiusMeters;
+    const northMeters = Math.sin(angle) * radiusMeters;
+
+    coordinates.push([
+      center[0] + metersToLongitudeDegrees(eastMeters, center[1]),
+      center[1] + metersToLatitudeDegrees(northMeters),
+    ]);
+  }
+
+  return [coordinates];
 }
 
 function areViewportStatesEquivalent(
@@ -456,9 +500,15 @@ export function MapScreen({
     userLocation,
   ]);
 
-  const placesFeatureCollection = React.useMemo<GeoJsonPlaceFeatureCollection>(() => {
+  const approximateMarkerLayout = React.useMemo<{
+    featureCollection: GeoJsonPlaceFeatureCollection;
+    selectedApproximateDisplayCoordinate: [number, number] | null;
+  }>(() => {
     if (!showPlaceMarkers || !viewportState) {
-      return EMPTY_PLACE_FEATURE_COLLECTION;
+      return {
+        featureCollection: EMPTY_PLACE_FEATURE_COLLECTION,
+        selectedApproximateDisplayCoordinate: null as [number, number] | null,
+      };
     }
 
     const visiblePlaces = places.filter(place =>
@@ -477,6 +527,7 @@ export function MapScreen({
     const approximateSpreadRadiusMeters = getApproximateSpreadRadiusMeters(
       viewportState.zoomLevel,
     );
+    let selectedApproximateDisplayCoordinate: [number, number] | null = null;
 
     visiblePlaces.forEach(place => {
       if (place.coordinatePrecision !== 'approximate') {
@@ -488,7 +539,8 @@ export function MapScreen({
     });
 
     return {
-      features: visiblePlaces.map(place => {
+      featureCollection: {
+        features: visiblePlaces.map<GeoJsonPlaceFeature>(place => {
           const isVisited = visitedPlaceIds.has(place.id);
           const baseCoordinate: [number, number] = [place.longitude, place.latitude];
           const approximateGroupKey = `${place.longitude.toFixed(5)}:${place.latitude.toFixed(5)}`;
@@ -505,6 +557,10 @@ export function MapScreen({
 
           if (place.coordinatePrecision === 'approximate') {
             approximateGroupIndices.set(approximateGroupKey, nextApproximateIndex + 1);
+          }
+
+          if (selectedPlace?.id === place.id && place.coordinatePrecision === 'approximate') {
+            selectedApproximateDisplayCoordinate = displayCoordinate;
           }
 
           return {
@@ -533,7 +589,9 @@ export function MapScreen({
             type: 'Feature',
           };
         }),
-      type: 'FeatureCollection',
+        type: 'FeatureCollection',
+      },
+      selectedApproximateDisplayCoordinate,
     };
   }, [
     displayGridZoom,
@@ -543,6 +601,41 @@ export function MapScreen({
     showPlaceMarkers,
     viewportState,
     visitedPlaceIds,
+  ]);
+
+  const placesFeatureCollection = approximateMarkerLayout.featureCollection;
+
+  const approximateSelectionHaloShape = React.useMemo<GeoJsonSelectionHaloFeatureCollection>(() => {
+    if (!selectedPlace || selectedPlace.coordinatePrecision !== 'approximate') {
+      return EMPTY_SELECTION_HALO_FEATURE_COLLECTION;
+    }
+
+    const center =
+      approximateMarkerLayout.selectedApproximateDisplayCoordinate ??
+      ([selectedPlace.longitude, selectedPlace.latitude] as [number, number]);
+
+    return {
+      features: [
+        {
+          geometry: {
+            coordinates: createHaloPolygon({
+              center,
+              radiusMeters: APPROXIMATE_SELECTION_HALO_RADIUS_METERS,
+            }),
+            type: 'Polygon',
+          },
+          id: `approximate-selection-halo:${selectedPlace.id}`,
+          properties: {
+            kind: 'approximate-selection-halo',
+          },
+          type: 'Feature',
+        },
+      ],
+      type: 'FeatureCollection',
+    };
+  }, [
+    approximateMarkerLayout.selectedApproximateDisplayCoordinate,
+    selectedPlace,
   ]);
 
   const fogOverlayShape = React.useMemo(() => {
@@ -803,6 +896,12 @@ export function MapScreen({
           <ShapeSource id="fog-of-war" shape={fogOverlayShape}>
             <FillLayer id="fog-fill" style={fogFillStyle as never} />
           </ShapeSource>
+          {approximateSelectionHaloShape.features.length > 0 ? (
+            <ShapeSource id="approximate-selection-halo" shape={approximateSelectionHaloShape}>
+              <FillLayer id="approximate-selection-halo-fill" style={approximateHaloFillStyle as never} />
+              <LineLayer id="approximate-selection-halo-outline" style={approximateHaloOutlineStyle as never} />
+            </ShapeSource>
+          ) : null}
           {showPlaceMarkers ? (
             <ShapeSource
               cluster
@@ -1083,4 +1182,15 @@ const placeApproximateLabelStyle = {
   textFont: ['Open Sans Bold'],
   textIgnorePlacement: true,
   textSize: 13,
+};
+
+const approximateHaloFillStyle = {
+  fillColor: '#38bdf8',
+  fillOpacity: 0.12,
+};
+
+const approximateHaloOutlineStyle = {
+  lineColor: '#7dd3fc',
+  lineOpacity: 0.75,
+  lineWidth: 2,
 };
