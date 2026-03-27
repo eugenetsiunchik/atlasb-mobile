@@ -3,6 +3,7 @@ export {
   getFirebaseAuth,
   getFirebaseConfigurationErrorMessage,
   getFirebaseFirestore,
+  getFirebaseFunctions,
   getFirebaseMessaging,
   getFirebaseStorage,
   isFirebaseConfigured,

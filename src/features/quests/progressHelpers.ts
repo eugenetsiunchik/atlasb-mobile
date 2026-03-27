@@ -1,5 +1,5 @@
 import type { PlaceMapItem } from '../map/types';
-import type { UserPlaceState } from '../userPlace/types';
+import type { UserPlaceState } from '../userPlace';
 import type {
   QuestDefinition,
   QuestPlaceMatcher,
@@ -42,14 +42,10 @@ function placeMatchesMatcher(place: PlaceMapItem, matcher: QuestPlaceMatcher) {
     return false;
   }
 
-  if (
-    normalizedMatcherNameIncludes &&
-    !normalizedPlaceName.includes(normalizedMatcherNameIncludes)
-  ) {
-    return false;
-  }
+  return !(normalizedMatcherNameIncludes &&
+    !normalizedPlaceName.includes(normalizedMatcherNameIncludes));
 
-  return true;
+
 }
 
 function buildRegionQuestProgressLabel(currentCount: number, targetCount: number, region: string) {
@@ -68,18 +64,27 @@ export function getQuestObjectiveSummary(quest: QuestDefinition) {
       return `Visit ${quest.objective.requiredCount} places in ${quest.objective.region}`;
     case 'completeThemedCollection':
       return `${quest.objective.places.length} places from ${quest.objective.themeLabel}`;
+    case 'contributionCount':
+      return `Complete ${quest.objective.requiredCount} approved contributions`;
+    case 'verificationCount':
+      return `Verify ${quest.objective.requiredCount} places`;
+    case 'streakDays':
+      return `Keep your streak for ${quest.objective.requiredDays} day${quest.objective.requiredDays === 1 ? '' : 's'}`;
   }
 }
 
-export function getQuestTargetLabels(quest: QuestDefinition) {
+export function getQuestTargetLabels(quest: QuestDefinition, places: PlaceMapItem[] = []) {
   switch (quest.objective.type) {
     case 'visitSpecificPlaces':
     case 'completeThemedCollection':
       return quest.objective.places.map(place => ({
         id: place.id,
-        label: place.label,
+        label: places.find(candidate => candidate.id === place.matcher.placeId)?.name ?? place.label,
       }));
     case 'visitPlacesInRegion':
+    case 'contributionCount':
+    case 'verificationCount':
+    case 'streakDays':
       return [];
   }
 }
@@ -167,6 +172,27 @@ export function evaluateQuestProgress(params: {
         updatedAtMs: nowMs,
       };
     }
+    case 'contributionCount':
+    case 'verificationCount':
+    case 'streakDays':
+      return {
+        completedAtMs: previousProgress?.completedAtMs ?? null,
+        currentCount: previousProgress?.currentCount ?? 0,
+        matchedPlaceIds: previousProgress?.matchedPlaceIds ?? [],
+        matchedTargetIds: previousProgress?.matchedTargetIds ?? [],
+        progressLabel: previousProgress?.progressLabel ?? '0/0 complete',
+        questId: quest.id,
+        rewardAchievementIds: quest.reward.achievementUnlocks.map(unlock => unlock.achievementId),
+        rewardAppliedAtMs: previousProgress?.rewardAppliedAtMs ?? null,
+        rewardXp: quest.reward.xp,
+        shouldApplyRewards: false,
+        status: previousProgress?.status ?? 'active',
+        targetCount:
+          objective.type === 'streakDays'
+            ? objective.requiredDays
+            : objective.requiredCount,
+        updatedAtMs: previousProgress?.updatedAtMs ?? nowMs,
+      };
   }
 }
 

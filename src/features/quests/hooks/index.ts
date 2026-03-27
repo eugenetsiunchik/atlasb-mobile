@@ -13,17 +13,20 @@ import {
 import {
   selectAllUserPlaceStates,
   selectUserPlaceStatesStatus,
-} from '../../userPlace/store';
-import { subscribeToQuests } from '../services/questsService';
-import { subscribeToUserQuestProgress } from '../services/userQuestProgressService';
+} from '../../userPlace';
+import {
+  loadQuestSnapshotWithGeneration,
+  subscribeToQuests,
+} from '../services/questsService';
 import {
   selectAllQuests,
   selectAllQuestProgress,
+  selectQuestSyncSource,
   selectQuestsStatus,
   selectQuestProgressStatus,
 } from '../store';
-import { syncQuestProgress } from '../store/questThunks';
-import { questsActions } from '../store/questsSlice';
+import { syncQuestProgress } from '../store';
+import { questsActions } from '../store';
 
 function buildQuestEvaluationKey(params: {
   placeStates: ReturnType<typeof selectAllUserPlaceStates>;
@@ -58,6 +61,39 @@ export function useQuestsSync() {
   const dispatch = useAppDispatch();
 
   React.useEffect(() => {
+    if (currentUser?.uid) {
+      dispatch(questsActions.questSyncSourceSet('serverSnapshot'));
+      dispatch(questsActions.questsLoadingStarted());
+      dispatch(questsActions.questProgressLoadingStarted());
+
+      let isCancelled = false;
+
+      void loadQuestSnapshotWithGeneration()
+        .then(({ progress, quests }) => {
+          if (isCancelled) {
+            return;
+          }
+
+          dispatch(questsActions.questsReceived(quests));
+          dispatch(questsActions.questProgressReceived(progress));
+        })
+        .catch(error => {
+          if (isCancelled) {
+            return;
+          }
+
+          const message =
+            error instanceof Error ? error.message : 'Unable to load quests from Cloud Functions.';
+          dispatch(questsActions.questsLoadFailed(message));
+          dispatch(questsActions.questProgressLoadFailed(message));
+        });
+
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    dispatch(questsActions.questSyncSourceSet('localEvaluation'));
     dispatch(questsActions.questsLoadingStarted());
 
     return subscribeToQuests({
@@ -68,24 +104,12 @@ export function useQuestsSync() {
         dispatch(questsActions.questsReceived(quests));
       },
     });
-  }, [dispatch]);
+  }, [currentUser?.uid, dispatch]);
 
   React.useEffect(() => {
     if (!currentUser?.uid) {
       dispatch(questsActions.questProgressCleared());
-      return;
     }
-
-    dispatch(questsActions.questProgressLoadingStarted());
-
-    return subscribeToUserQuestProgress(currentUser.uid, {
-      onError: message => {
-        dispatch(questsActions.questProgressLoadFailed(message));
-      },
-      onSuccess: progress => {
-        dispatch(questsActions.questProgressReceived(progress));
-      },
-    });
   }, [currentUser?.uid, dispatch]);
 }
 
@@ -99,6 +123,7 @@ export function useQuestProgressEvaluation() {
   const places = useAppSelector(selectAllMapPlaces);
   const questsStatus = useAppSelector(selectQuestsStatus);
   const progressStatus = useAppSelector(selectQuestProgressStatus);
+  const questSyncSource = useAppSelector(selectQuestSyncSource);
   const mapPlacesStatus = useAppSelector(selectMapPlacesStatus);
   const userPlaceStatesStatus = useAppSelector(selectUserPlaceStatesStatus);
   const evaluationKey = React.useMemo(
@@ -116,8 +141,9 @@ export function useQuestProgressEvaluation() {
     if (
       !currentUser?.uid ||
       !profile ||
+      questSyncSource === 'serverSnapshot' ||
       questsStatus !== 'ready' ||
-      progressStatus === 'loading' ||
+      progressStatus !== 'ready' ||
       mapPlacesStatus !== 'ready' ||
       userPlaceStatesStatus !== 'ready'
     ) {
@@ -132,6 +158,7 @@ export function useQuestProgressEvaluation() {
     mapPlacesStatus,
     profile,
     progressStatus,
+    questSyncSource,
     questsStatus,
     userPlaceStatesStatus,
   ]);

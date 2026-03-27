@@ -54,7 +54,7 @@ export function QuestDetailsScreen({ onBack, questId }: QuestDetailsScreenProps)
     );
   }
 
-  const targetLabels = getQuestTargetLabels(quest);
+  const targetLabels = getQuestTargetLabels(quest, places);
 
   return (
     <ScrollView

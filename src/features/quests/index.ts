@@ -25,6 +25,7 @@ export {
   selectQuestProgressByQuestId,
   selectQuestProgressError,
   selectQuestProgressStatus,
+  selectQuestSyncSource,
   selectQuestsError,
   selectQuestsStatus,
   selectQuestSummary,

@@ -15,6 +15,7 @@ export const selectQuestsError = (state: RootState) => state.quests.questsError;
 export const selectQuestProgressStatus = (state: RootState) => state.quests.progressStatus;
 export const selectQuestProgressError = (state: RootState) => state.quests.progressError;
 export const selectQuestProgressByQuestId = (state: RootState) => state.quests.progressByQuestId;
+export const selectQuestSyncSource = (state: RootState) => state.quests.syncSource;
 export const selectAllQuestProgress = createSelector(
   [selectQuestProgressByQuestId],
   progressByQuestId => Object.values(progressByQuestId),

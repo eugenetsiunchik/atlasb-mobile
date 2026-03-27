@@ -4,11 +4,14 @@ import {
   getFirestore,
   type FirebaseFirestoreTypes,
 } from '@react-native-firebase/firestore';
+import '@react-native-firebase/functions';
+import type { FirebaseFunctionsTypes } from '@react-native-firebase/functions';
 import { getMessaging, type Messaging } from '@react-native-firebase/messaging';
 import { getStorage, type FirebaseStorageTypes } from '@react-native-firebase/storage';
 
 const FIREBASE_CONFIGURATION_ERROR =
   'Firebase is not configured. Add iOS `GoogleService-Info.plist` and Android `android/app/google-services.json`, then rebuild the app.';
+const DEFAULT_FIREBASE_FUNCTIONS_REGION = 'europe-central2';
 
 function getDefaultFirebaseApp() {
   // With React Native Firebase, the default app is configured natively via:
@@ -45,6 +48,12 @@ export function getFirebaseAuth(): FirebaseAuthTypes.Module {
 
 export function getFirebaseFirestore(): FirebaseFirestoreTypes.Module {
   return getFirestore(getDefaultFirebaseApp());
+}
+
+export function getFirebaseFunctions(
+  region = DEFAULT_FIREBASE_FUNCTIONS_REGION,
+): FirebaseFunctionsTypes.Module {
+  return getDefaultFirebaseApp().functions(region);
 }
 
 export function getFirebaseStorage(): FirebaseStorageTypes.Module {

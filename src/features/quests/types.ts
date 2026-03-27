@@ -1,7 +1,7 @@
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import type { PlaceMapItem } from '../map/types';
-import type { UserPlaceState } from '../userPlace/types';
+import type { UserPlaceState } from '../userPlace';
 import type { AchievementUnlockDraft } from '../../services/gamification';
 
 export const QUESTS_COLLECTION_NAME = 'quests';
@@ -12,7 +12,10 @@ export type QuestStatus = 'active' | 'archived';
 export type QuestType =
   | 'visitSpecificPlaces'
   | 'visitPlacesInRegion'
-  | 'completeThemedCollection';
+  | 'completeThemedCollection'
+  | 'contributionCount'
+  | 'verificationCount'
+  | 'streakDays';
 
 export type QuestPlaceMatcher = {
   nameEquals?: string;
@@ -44,10 +47,28 @@ export type CompleteThemedCollectionQuestObjective = {
   type: 'completeThemedCollection';
 };
 
+export type ContributionCountQuestObjective = {
+  requiredCount: number;
+  type: 'contributionCount';
+};
+
+export type VerificationCountQuestObjective = {
+  requiredCount: number;
+  type: 'verificationCount';
+};
+
+export type StreakDaysQuestObjective = {
+  requiredDays: number;
+  type: 'streakDays';
+};
+
 export type QuestObjective =
   | VisitSpecificPlacesQuestObjective
   | VisitPlacesInRegionQuestObjective
-  | CompleteThemedCollectionQuestObjective;
+  | CompleteThemedCollectionQuestObjective
+  | ContributionCountQuestObjective
+  | VerificationCountQuestObjective
+  | StreakDaysQuestObjective;
 
 export type QuestReward = {
   achievementUnlocks: AchievementUnlockDraft[];

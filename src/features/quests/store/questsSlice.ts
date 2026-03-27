@@ -19,6 +19,7 @@ function createInitialState() {
     progressStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
     questsError: null as string | null,
     questsStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
+    syncSource: 'localEvaluation' as 'localEvaluation' | 'serverSnapshot',
   });
 }
 
@@ -68,6 +69,12 @@ export const questsSlice = createSlice({
       questsAdapter.setAll(state, action.payload);
       state.questsError = null;
       state.questsStatus = 'ready';
+    },
+    questSyncSourceSet(
+      state,
+      action: PayloadAction<'localEvaluation' | 'serverSnapshot'>,
+    ) {
+      state.syncSource = action.payload;
     },
   },
 });
