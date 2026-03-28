@@ -28,6 +28,7 @@ export type PlaceCoordinateSource =
 export type MapUserLocation = MapCoordinate & {
   accuracyMeters: number | null;
   capturedAtMs: number;
+  headingDegrees?: number | null;
 };
 
 export type PlaceMapItem = {

@@ -1890,6 +1890,13 @@
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
 
+"@react-native-async-storage/async-storage@^3.0.2":
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/@react-native-async-storage/async-storage/-/async-storage-3.0.2.tgz#caf2d0d7038dc2b8a2a48971bdbd047db0a2ac86"
+  integrity sha512-XP0zDIl+1XoeuQ7f878qXKdl77zLwzLALPpxvNRc7ZtDh9ew36WSvOdQOhFkexMySapFAWxEbZxS8K8J2DU4eg==
+  dependencies:
+    idb "8.0.3"
+
 "@react-native-community/cli-clean@20.1.0":
   version "20.1.0"
   resolved "https://registry.yarnpkg.com/@react-native-community/cli-clean/-/cli-clean-20.1.0.tgz#c60a8f909c4269cabb785b47e43af4f8cd3fef3b"
@@ -4665,6 +4672,11 @@ idb@7.1.1:
   version "7.1.1"
   resolved "https://registry.yarnpkg.com/idb/-/idb-7.1.1.tgz#d910ded866d32c7ced9befc5bfdf36f572ced72b"
   integrity sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ==
+
+idb@8.0.3:
+  version "8.0.3"
+  resolved "https://registry.yarnpkg.com/idb/-/idb-8.0.3.tgz#c91e558f15a8d53f1d7f53a094d226fc3ad71fd9"
+  integrity sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==
 
 ieee754@^1.1.13:
   version "1.2.1"

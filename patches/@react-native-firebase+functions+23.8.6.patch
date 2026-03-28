@@ -1,0 +1,24 @@
+diff --git a/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.h b/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.h
+index b608e55..9f3ceb8 100644
+--- a/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.h
++++ b/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.h
+@@ -17,6 +17,7 @@
+ 
+ #import <Foundation/Foundation.h>
+ 
++#import <RNFBApp/RNFBAppModule.h>
+ #import <React/RCTBridgeModule.h>
+ 
+ @interface RNFBFunctionsModule : NSObject <RCTBridgeModule>
+diff --git a/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.m b/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.m
+index 1f4be2b..dd72f58 100644
+--- a/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.m
++++ b/node_modules/@react-native-firebase/functions/ios/RNFBFunctions/RNFBFunctionsModule.m
+@@ -61,7 +61,6 @@ @implementation RNFBFunctionsModule
+   // and set it to an `NSNull` (versus the `Optional<Any>` Swift will see from `valueForKey` so that
+   // FirebaseFunctions serializer won't have a validation failure for an unknown type.
+   id data = [wrapper valueForKey:@"data"];
+-  NSLog(@"RNFBFUNCTIONS pulled data from 'wrapper', has type %@", [data class]);
+   if (data == nil) {
+     data = [NSNull null];
+   }

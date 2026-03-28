@@ -53,11 +53,15 @@ export function SettingsScreen({
       }
     };
 
-    void syncLocationPermission();
+    syncLocationPermission().catch(() => {
+      // Keep the last known permission state if the refresh fails.
+    });
 
     const subscription = AppState.addEventListener('change', nextState => {
       if (nextState === 'active') {
-        void syncLocationPermission();
+        syncLocationPermission().catch(() => {
+          // Ignore foreground refresh failures.
+        });
       }
     });
 
@@ -87,14 +91,11 @@ export function SettingsScreen({
   }, [dispatch]);
 
   const handleResetProgressPress = React.useCallback(() => {
-    if (!isAuthenticated) {
-      setProgressResetMessage('Sign in to reset saved fog-of-war exploration progress.');
-      return;
-    }
-
     Alert.alert(
       'Reset exploration progress?',
-      'This will permanently clear your explored territory and fog-of-war progress for this account.',
+      isAuthenticated
+        ? 'This will permanently clear your explored territory and fog-of-war progress on this device and for this account.'
+        : 'This will permanently clear your explored territory and fog-of-war progress stored on this device.',
       [
         {
           style: 'cancel',
@@ -111,8 +112,10 @@ export function SettingsScreen({
               .then(didReset => {
                 setProgressResetMessage(
                   didReset
-                    ? 'Exploration progress was reset for this account.'
-                    : 'Sign in to reset saved fog-of-war exploration progress.',
+                    ? isAuthenticated
+                      ? 'Exploration progress was reset on this device and for this account.'
+                      : 'Exploration progress was reset on this device.'
+                    : 'Unable to reset exploration progress.',
                 );
               })
               .catch(() => {
@@ -221,17 +224,16 @@ export function SettingsScreen({
             Clear your saved explored territory and start map discovery from scratch.
           </AppText>
           <Button
-            disabled={!isAuthenticated}
             label="Reset exploration progress"
             loading={isResettingProgress}
             onPress={handleResetProgressPress}
             variant="destructive"
           />
-          {!isAuthenticated ? (
-            <AppText variant="caption" tone="muted">
-              Sign in to reset saved exploration progress.
-            </AppText>
-          ) : null}
+          <AppText variant="caption" tone="muted">
+            {isAuthenticated
+              ? 'This clears exploration progress on this device and for your account.'
+              : 'This clears exploration progress saved on this device.'}
+          </AppText>
           {progressResetMessage ? (
             <AppText variant="caption">{progressResetMessage}</AppText>
           ) : null}

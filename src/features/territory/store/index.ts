@@ -1,8 +1,9 @@
 export {
-  selectAllExploredTerritoryCells,
-  selectExploredTerritoryCellById,
-  selectExploredTerritoryCellIds,
+  selectAllExploredTerritoryReveals,
+  selectExploredTerritoryRevealById,
+  selectExploredTerritoryRevealIds,
   selectTerritoryError,
+  selectTerritoryResetVersion,
   selectTerritoryState,
   selectTerritoryStatus,
 } from './territorySelectors';

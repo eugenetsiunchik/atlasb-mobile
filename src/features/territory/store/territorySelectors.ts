@@ -8,12 +8,13 @@ const territorySelectors = territoryAdapterSelectors.getSelectors<RootState>(
 );
 
 export const selectTerritoryState = (state: RootState) => state.territory;
-export const selectAllExploredTerritoryCells = territorySelectors.selectAll;
-export const selectExploredTerritoryCellById = territorySelectors.selectById;
+export const selectAllExploredTerritoryReveals = territorySelectors.selectAll;
+export const selectExploredTerritoryRevealById = territorySelectors.selectById;
 export const selectTerritoryStatus = (state: RootState) => state.territory.status;
 export const selectTerritoryError = (state: RootState) => state.territory.error;
+export const selectTerritoryResetVersion = (state: RootState) => state.territory.resetVersion;
 
-export const selectExploredTerritoryCellIds = createSelector(
-  [selectAllExploredTerritoryCells],
-  cells => cells.map(cell => cell.cellId),
+export const selectExploredTerritoryRevealIds = createSelector(
+  [selectAllExploredTerritoryReveals],
+  reveals => reveals.map(reveal => reveal.revealId),
 );

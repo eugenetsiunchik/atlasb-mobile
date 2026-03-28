@@ -1,34 +1,28 @@
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 export const TERRITORY_CELLS_SUBCOLLECTION_NAME = 'exploredCells';
-export const TERRITORY_STORAGE_GRID_ZOOM = 11;
-export const TERRITORY_MIN_DISPLAY_GRID_ZOOM = 7;
-export const TERRITORY_MAX_DISPLAY_GRID_ZOOM = 10;
+export const TERRITORY_REVEAL_FORWARD_OFFSET_METERS = 15;
 
-export type TerritoryCellId = string;
+export type TerritoryRevealId = string;
 
-export type ExploredTerritoryCell = {
-  cellId: TerritoryCellId;
+export type ExploredTerritoryReveal = {
   createdAtMs: number | null;
-  gridZoom: number;
+  headingDegrees: number | null;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  revealId: TerritoryRevealId;
   updatedAtMs: number | null;
-  x: number;
-  y: number;
 };
 
-export type FirestoreExploredTerritoryCell = {
-  cellId?: string;
+export type FirestoreExploredTerritoryReveal = {
   createdAt?: FirebaseFirestoreTypes.Timestamp | null;
-  gridZoom?: number;
+  headingDegrees?: number | null;
+  latitude?: number;
+  longitude?: number;
+  radiusMeters?: number;
+  revealId?: string;
   updatedAt?: FirebaseFirestoreTypes.Timestamp | null;
-  x?: number;
-  y?: number;
-};
-
-export type TerritoryCellCoordinate = {
-  gridZoom: number;
-  x: number;
-  y: number;
 };
 
 export type MapViewportBounds = {

@@ -1,67 +1,74 @@
 import { logFirebaseError } from '../../../firebase';
 import { selectCurrentUser, type AppThunk } from '../../../store';
-import type { MapCoordinate } from '../../map/types';
-import type { ExploredTerritoryCell, TerritoryCellCoordinate } from '../types';
-import { TERRITORY_STORAGE_GRID_ZOOM } from '../types';
+import type { MapUserLocation } from '../../map/types';
+import { mapActions } from '../../map/store';
+import {
+  appendGuestExploredTerritoryReveals,
+  clearGuestExploredTerritoryCells,
+} from '../services/guestTerritoryStorage';
+import {
+  TERRITORY_REVEAL_FORWARD_OFFSET_METERS,
+  type ExploredTerritoryReveal,
+} from '../types';
 import {
   clearExploredTerritory,
-  persistExploredTerritoryCells,
+  persistExploredTerritoryReveals,
 } from '../services/territoryService';
-import { getTerritoryCellId, getTerritoryCellsWithinRadius } from '../utils/grid';
-import { selectAllExploredTerritoryCells } from './territorySelectors';
+import { createExplorationRevealFromLocation } from '../utils/reveals';
+import { selectAllExploredTerritoryReveals } from './territorySelectors';
 import { territoryActions } from './territorySlice';
 
-function createOptimisticTerritoryCells(cells: TerritoryCellCoordinate[]): ExploredTerritoryCell[] {
-  const now = Date.now();
-
-  return cells.map(cell => ({
-    cellId: getTerritoryCellId(cell),
-    createdAtMs: now,
-    gridZoom: cell.gridZoom,
-    updatedAtMs: now,
-    x: cell.x,
-    y: cell.y,
-  }));
+function createOptimisticReveal(reveal: ExploredTerritoryReveal): ExploredTerritoryReveal {
+  return {
+    ...reveal,
+    createdAtMs: reveal.createdAtMs ?? Date.now(),
+    updatedAtMs: Date.now(),
+  };
 }
 
 export function persistExplorationForLocation(params: {
-  center: MapCoordinate;
+  location: MapUserLocation;
   radiusMeters: number;
 }): AppThunk<Promise<void>> {
   return async (dispatch, getState) => {
+    const nextReveal = createExplorationRevealFromLocation({
+      forwardOffsetMeters: TERRITORY_REVEAL_FORWARD_OFFSET_METERS,
+      location: params.location,
+      radiusMeters: params.radiusMeters,
+    });
+    const alreadyPersisted = selectAllExploredTerritoryReveals(getState()).some(
+      reveal => reveal.revealId === nextReveal.revealId,
+    );
+
+    if (alreadyPersisted) {
+      return;
+    }
+
+    dispatch(territoryActions.territoryRevealsUpserted([createOptimisticReveal(nextReveal)]));
+
     const currentUser = selectCurrentUser(getState());
 
     if (!currentUser?.uid) {
+      try {
+        await appendGuestExploredTerritoryReveals([nextReveal]);
+      } catch (error) {
+        console.warn('[Territory] Unable to persist guest exploration progress', error);
+      }
       return;
     }
-
-    const existingCellIds = new Set(
-      selectAllExploredTerritoryCells(getState()).map(cell => cell.cellId),
-    );
-    const nextCells = getTerritoryCellsWithinRadius({
-      center: params.center,
-      gridZoom: TERRITORY_STORAGE_GRID_ZOOM,
-      radiusMeters: params.radiusMeters,
-    }).filter(cell => !existingCellIds.has(getTerritoryCellId(cell)));
-
-    if (nextCells.length === 0) {
-      return;
-    }
-
-    dispatch(territoryActions.territoryCellsUpserted(createOptimisticTerritoryCells(nextCells)));
 
     try {
-      await persistExploredTerritoryCells({
-        cells: nextCells,
+      await persistExploredTerritoryReveals({
+        reveals: [nextReveal],
         uid: currentUser.uid,
       });
     } catch (error) {
       logFirebaseError(
         'Persist exploration for location failed',
         {
-          cellCount: nextCells.length,
-          latitude: params.center.latitude,
-          longitude: params.center.longitude,
+          headingDegrees: nextReveal.headingDegrees,
+          latitude: nextReveal.latitude,
+          longitude: nextReveal.longitude,
           radiusMeters: params.radiusMeters,
           uid: currentUser.uid,
         },
@@ -76,11 +83,16 @@ export function resetExplorationProgress(): AppThunk<Promise<boolean>> {
     const currentUser = selectCurrentUser(getState());
 
     if (!currentUser?.uid) {
-      return false;
+      await clearGuestExploredTerritoryCells();
+      dispatch(mapActions.userLocationCleared());
+      dispatch(territoryActions.territoryCleared());
+      return true;
     }
 
     try {
+      await clearGuestExploredTerritoryCells();
       await clearExploredTerritory(currentUser.uid);
+      dispatch(mapActions.userLocationCleared());
       dispatch(territoryActions.territoryCleared());
       return true;
     } catch (error) {

@@ -1,4 +1,3 @@
-import { isCoordinateInsideHardcodedCityBoundary } from './hardcodedCityBoundaries';
 import type { MapCoordinate } from '../types';
 
 type FogOfWarLevelRule = {
@@ -10,6 +9,7 @@ type FogOfWarLevelRule = {
 };
 
 const DEFAULT_LEVEL = 1;
+const DEFAULT_FOG_OF_WAR_VISIBLE_RADIUS_METERS = 100;
 
 const FOG_OF_WAR_LEVEL_RULES: FogOfWarLevelRule[] = [
   { level: 1, minZoomLevel: 12.2, maxZoomLevel: 14.2, cityVisibleRadiusMeters: 150, ruralVisibleRadiusMeters: 2_000 },
@@ -46,19 +46,15 @@ export function getFogOfWarRuleForLevel(level: number | null | undefined) {
   return FOG_OF_WAR_LEVEL_RULES[0];
 }
 
-export function getAdaptiveFogOfWarRadiusMeters(params: {
+export function getAdaptiveFogOfWarRadiusMeters(_params: {
   levelRule: FogOfWarLevelRule;
   userLocation: MapCoordinate | null;
 }) {
-  const { levelRule, userLocation } = params;
-
-  if (!userLocation) {
-    return levelRule.ruralVisibleRadiusMeters;
-  }
-
-  return isCoordinateInsideHardcodedCityBoundary(userLocation)
-    ? levelRule.cityVisibleRadiusMeters
-    : levelRule.ruralVisibleRadiusMeters;
+  return DEFAULT_FOG_OF_WAR_VISIBLE_RADIUS_METERS;
 }
 
-export { DEFAULT_LEVEL as DEFAULT_FOG_OF_WAR_LEVEL, FOG_OF_WAR_LEVEL_RULES };
+export {
+  DEFAULT_LEVEL as DEFAULT_FOG_OF_WAR_LEVEL,
+  DEFAULT_FOG_OF_WAR_VISIBLE_RADIUS_METERS,
+  FOG_OF_WAR_LEVEL_RULES,
+};

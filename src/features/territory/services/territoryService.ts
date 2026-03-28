@@ -16,11 +16,9 @@ import {
 } from '../../../firebase';
 import {
   TERRITORY_CELLS_SUBCOLLECTION_NAME,
-  type ExploredTerritoryCell,
-  type FirestoreExploredTerritoryCell,
-  type TerritoryCellCoordinate,
+  type ExploredTerritoryReveal,
+  type FirestoreExploredTerritoryReveal,
 } from '../types';
-import { getTerritoryCellId } from '../utils/grid';
 
 const USERS_COLLECTION_NAME = 'users';
 
@@ -31,8 +29,8 @@ function getTerritoryCellsCollection(uid: string) {
   );
 }
 
-function getTerritoryCellDocument(uid: string, cellId: string) {
-  return doc(getTerritoryCellsCollection(uid), cellId);
+function getTerritoryRevealDocument(uid: string, revealId: string) {
+  return doc(getTerritoryCellsCollection(uid), revealId);
 }
 
 function readTimestampMs(value: unknown) {
@@ -48,30 +46,34 @@ function readTimestampMs(value: unknown) {
   return null;
 }
 
-function normalizeTerritoryCell(
+function normalizeTerritoryReveal(
   documentSnapshot: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>,
-): ExploredTerritoryCell | null {
-  const data = documentSnapshot.data() as FirestoreExploredTerritoryCell | undefined;
+): ExploredTerritoryReveal | null {
+  const data = documentSnapshot.data() as FirestoreExploredTerritoryReveal | undefined;
 
-  if (!data || typeof data.x !== 'number' || typeof data.y !== 'number') {
-    return null;
-  }
-
-  const gridZoom =
-    typeof data.gridZoom === 'number' && Number.isFinite(data.gridZoom) ? data.gridZoom : null;
-
-  if (gridZoom === null) {
+  if (
+    !data ||
+    typeof data.latitude !== 'number' ||
+    typeof data.longitude !== 'number' ||
+    typeof data.radiusMeters !== 'number'
+  ) {
     return null;
   }
 
   return {
-    cellId:
-      typeof data.cellId === 'string' && data.cellId.trim() ? data.cellId : documentSnapshot.id,
     createdAtMs: readTimestampMs(data.createdAt),
-    gridZoom,
+    headingDegrees:
+      typeof data.headingDegrees === 'number' && Number.isFinite(data.headingDegrees)
+        ? data.headingDegrees
+        : null,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    radiusMeters: data.radiusMeters,
+    revealId:
+      typeof data.revealId === 'string' && data.revealId.trim()
+        ? data.revealId
+        : documentSnapshot.id,
     updatedAtMs: readTimestampMs(data.updatedAt),
-    x: data.x,
-    y: data.y,
   };
 }
 
@@ -79,7 +81,7 @@ export function subscribeToExploredTerritory(
   uid: string,
   options: {
     onError: (message: string) => void;
-    onSuccess: (cells: ExploredTerritoryCell[]) => void;
+    onSuccess: (reveals: ExploredTerritoryReveal[]) => void;
   },
 ) {
   if (!isFirebaseConfigured()) {
@@ -90,9 +92,11 @@ export function subscribeToExploredTerritory(
   return onSnapshot(
     getTerritoryCellsCollection(uid),
     snapshot => {
-      const cells = snapshot.docs.map(normalizeTerritoryCell).filter(Boolean) as ExploredTerritoryCell[];
+      const reveals = snapshot.docs
+        .map(normalizeTerritoryReveal)
+        .filter(Boolean) as ExploredTerritoryReveal[];
 
-      options.onSuccess(cells);
+      options.onSuccess(reveals);
     },
     error => {
       logFirebaseError(
@@ -113,29 +117,28 @@ export function subscribeToExploredTerritory(
   );
 }
 
-export async function persistExploredTerritoryCells(params: {
-  cells: TerritoryCellCoordinate[];
+export async function persistExploredTerritoryReveals(params: {
+  reveals: ExploredTerritoryReveal[];
   uid: string;
 }) {
-  if (params.cells.length === 0 || !isFirebaseConfigured()) {
+  if (params.reveals.length === 0 || !isFirebaseConfigured()) {
     return;
   }
 
   const firestore = getFirebaseFirestore();
   const batch = writeBatch(firestore);
 
-  params.cells.forEach(cell => {
-    const cellId = getTerritoryCellId(cell);
-
+  params.reveals.forEach(reveal => {
     batch.set(
-      getTerritoryCellDocument(params.uid, cellId),
+      getTerritoryRevealDocument(params.uid, reveal.revealId),
       {
-        cellId,
         createdAt: serverTimestamp(),
-        gridZoom: cell.gridZoom,
+        headingDegrees: reveal.headingDegrees,
+        latitude: reveal.latitude,
+        longitude: reveal.longitude,
+        radiusMeters: reveal.radiusMeters,
+        revealId: reveal.revealId,
         updatedAt: serverTimestamp(),
-        x: cell.x,
-        y: cell.y,
       },
       { merge: true },
     );
@@ -147,7 +150,7 @@ export async function persistExploredTerritoryCells(params: {
     logFirebaseError(
       'Firestore write explored territory failed',
       {
-        cellCount: params.cells.length,
+        revealCount: params.reveals.length,
         operation: 'writeBatch',
         path: `users/${params.uid}/${TERRITORY_CELLS_SUBCOLLECTION_NAME}`,
         uid: params.uid,

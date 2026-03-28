@@ -86,6 +86,13 @@ export const mapSlice = createSlice({
 
       state.selectedPlaceId = action.payload;
     },
+    userLocationCleared(state) {
+      if (state.userLocation === null) {
+        return;
+      }
+
+      state.userLocation = null;
+    },
     placesLoadFailed(state, action: PayloadAction<string>) {
       if (state.error === action.payload && state.placesStatus === 'error') {
         return;

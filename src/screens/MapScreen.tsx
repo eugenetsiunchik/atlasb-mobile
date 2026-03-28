@@ -33,21 +33,20 @@ import {
   requestLocationPermission,
 } from '../features/map/services/locationPermissionService';
 import {
-  TERRITORY_MAX_DISPLAY_GRID_ZOOM,
-  TERRITORY_MIN_DISPLAY_GRID_ZOOM,
+  TERRITORY_REVEAL_FORWARD_OFFSET_METERS,
   persistExplorationForLocation,
-  selectAllExploredTerritoryCells,
+  selectAllExploredTerritoryReveals,
+  selectTerritoryResetVersion,
 } from '../features/territory';
 import {
   createFogOverlay,
-  type GeoJsonPolygonFeatureCollection,
 } from '../features/territory/utils/overlay';
 import {
-  getParentTerritoryCellId,
-  getTerritoryCellForCoordinate,
-  getTerritoryCellId,
-  getTerritoryCellsWithinRadius,
-} from '../features/territory/utils/grid';
+  createExplorationRevealFromLocation,
+  createRevealCircleRing,
+  doesRevealContainCoordinate,
+  mergeExplorationReveals,
+} from '../features/territory/utils/reveals';
 import { getDistanceBetweenCoordinatesMeters } from '../features/userPlace/utils/distance';
 import { logFirebaseError } from '../firebase';
 import {
@@ -69,7 +68,7 @@ const BELARUS_CENTER: [number, number] = [27.9534, 53.7098];
 const BELARUS_ZOOM_LEVEL = 5.6;
 const MAX_EXPLORATION_ACCURACY_METERS = 250;
 const MIN_EXPLORATION_WRITE_INTERVAL_MS = 120_000;
-const PLACE_COUNT_RADIUS_METERS = 5_000;
+const NEARBY_PLACE_VISIBILITY_RADIUS_METERS = 5_000;
 const APPROXIMATE_SELECTION_HALO_RADIUS_METERS = 1_000;
 
 type GeoJsonPlaceFeature = {
@@ -142,15 +141,24 @@ const EMPTY_PLACE_FEATURE_COLLECTION: GeoJsonPlaceFeatureCollection = {
   type: 'FeatureCollection',
 };
 
-const EMPTY_FOG_FEATURE_COLLECTION: GeoJsonPolygonFeatureCollection = {
-  features: [],
-  type: 'FeatureCollection',
-};
-
 const EMPTY_SELECTION_HALO_FEATURE_COLLECTION: GeoJsonSelectionHaloFeatureCollection = {
   features: [],
   type: 'FeatureCollection',
 };
+
+const EMPTY_REVEAL_EDGE_FEATURE_COLLECTION: {
+  features: never[];
+  type: 'FeatureCollection';
+} = {
+  features: [],
+  type: 'FeatureCollection',
+};
+
+function formatNearbyRadiusLabel(radiusMeters: number) {
+  return radiusMeters >= 1_000
+    ? `Within ${radiusMeters / 1_000} km`
+    : `Within ${radiusMeters} m`;
+}
 
 function getCoordinateFromLocationEvent(location: unknown) {
   if (typeof location !== 'object' || location === null) {
@@ -160,6 +168,7 @@ function getCoordinateFromLocationEvent(location: unknown) {
   const candidate = location as {
     coords?: {
       accuracy?: number;
+      heading?: number;
       latitude?: number;
       longitude?: number;
     };
@@ -169,6 +178,7 @@ function getCoordinateFromLocationEvent(location: unknown) {
   };
 
   const accuracyMeters = candidate.coords?.accuracy;
+  const headingDegrees = candidate.coords?.heading;
   const latitude = candidate.coords?.latitude ?? candidate.latitude;
   const longitude = candidate.coords?.longitude ?? candidate.longitude;
   const capturedAtMs =
@@ -178,21 +188,14 @@ function getCoordinateFromLocationEvent(location: unknown) {
     ? {
         accuracyMeters: typeof accuracyMeters === 'number' ? accuracyMeters : null,
         capturedAtMs,
+        headingDegrees:
+          typeof headingDegrees === 'number' && Number.isFinite(headingDegrees) && headingDegrees >= 0
+            ? headingDegrees
+            : null,
         latitude,
         longitude,
       }
     : null;
-}
-
-function getDisplayGridZoom(mapZoomLevel: number | null) {
-  if (typeof mapZoomLevel !== 'number' || !Number.isFinite(mapZoomLevel)) {
-    return TERRITORY_MIN_DISPLAY_GRID_ZOOM;
-  }
-
-  return Math.max(
-    TERRITORY_MIN_DISPLAY_GRID_ZOOM,
-    Math.min(TERRITORY_MAX_DISPLAY_GRID_ZOOM, Math.floor(mapZoomLevel)),
-  );
 }
 
 function constrainZoomLevel(zoomLevel: number, minZoomLevel: number, maxZoomLevel: number) {
@@ -200,7 +203,7 @@ function constrainZoomLevel(zoomLevel: number, minZoomLevel: number, maxZoomLeve
 }
 
 function getExplorationMovementThresholdMeters(visibilityRadiusMeters: number) {
-  return Math.max(100, Math.min(2_000, Math.round(visibilityRadiusMeters * 0.6)));
+  return Math.max(8, Math.min(60, Math.round(visibilityRadiusMeters * 0.4)));
 }
 
 function areCoordinatesClose(
@@ -332,7 +335,8 @@ export function MapScreen({
   const userLocation = useAppSelector(selectUserLocation);
   const locationPermission = useAppSelector(selectLocationPermission);
   const effectiveUserLevel = useAppSelector(selectEffectiveUserLevel);
-  const exploredTerritoryCells = useAppSelector(selectAllExploredTerritoryCells);
+  const exploredTerritoryReveals = useAppSelector(selectAllExploredTerritoryReveals);
+  const territoryResetVersion = useAppSelector(selectTerritoryResetVersion);
   const userPlaceStates = useAppSelector(selectAllUserPlaceStates);
 
   const [mapStyle, setMapStyle] = React.useState<string | Record<string, unknown>>('');
@@ -360,10 +364,6 @@ export function MapScreen({
         userLocation,
       }),
     [fogOfWarRule, userLocation],
-  );
-  const displayGridZoom = React.useMemo(
-    () => getDisplayGridZoom(viewportState?.zoomLevel ?? null),
-    [viewportState?.zoomLevel],
   );
   const effectiveMaxZoomLevel = React.useMemo(() => {
     if (
@@ -401,7 +401,7 @@ export function MapScreen({
     return places.reduce((count, place) => {
       const distanceMeters = getDistanceBetweenCoordinatesMeters(userLocation, place);
 
-      return distanceMeters <= PLACE_COUNT_RADIUS_METERS ? count + 1 : count;
+      return distanceMeters <= NEARBY_PLACE_VISIBILITY_RADIUS_METERS ? count + 1 : count;
     }, 0);
   }, [places, userLocation]);
 
@@ -471,34 +471,24 @@ export function MapScreen({
     }
   }, []);
 
-  const revealedDisplayCellIds = React.useMemo(() => {
-    const nextRevealedCellIds = new Set<string>();
-
-    exploredTerritoryCells.forEach(cell => {
-      const parentCellId = getParentTerritoryCellId(cell.cellId, displayGridZoom);
-
-      if (parentCellId) {
-        nextRevealedCellIds.add(parentCellId);
-      }
-    });
-
-    if (userLocation) {
-      getTerritoryCellsWithinRadius({
-        center: userLocation,
-        gridZoom: displayGridZoom,
-        radiusMeters: currentVisibilityRadiusMeters,
-      }).forEach(cell => {
-        nextRevealedCellIds.add(getTerritoryCellId(cell));
-      });
-    }
-
-    return nextRevealedCellIds;
-  }, [
-    displayGridZoom,
-    exploredTerritoryCells,
-    currentVisibilityRadiusMeters,
-    userLocation,
-  ]);
+  const currentLiveTerritoryReveal = React.useMemo(
+    () =>
+      userLocation
+        ? createExplorationRevealFromLocation({
+            forwardOffsetMeters: 0,
+            location: userLocation,
+            radiusMeters: currentVisibilityRadiusMeters,
+          })
+        : null,
+    [currentVisibilityRadiusMeters, userLocation],
+  );
+  const visibleTerritoryReveals = React.useMemo(
+    () =>
+      currentLiveTerritoryReveal
+        ? mergeExplorationReveals(exploredTerritoryReveals, [currentLiveTerritoryReveal])
+        : exploredTerritoryReveals,
+    [currentLiveTerritoryReveal, exploredTerritoryReveals],
+  );
 
   const approximateMarkerLayout = React.useMemo<{
     featureCollection: GeoJsonPlaceFeatureCollection;
@@ -512,15 +502,17 @@ export function MapScreen({
     }
 
     const visiblePlaces = places.filter(place =>
-      revealedDisplayCellIds.has(
-        getTerritoryCellId(
-          getTerritoryCellForCoordinate(
-            place.longitude,
-            place.latitude,
-            displayGridZoom,
-          ),
-        ),
-      ),
+      visibleTerritoryReveals.some(reveal =>
+        doesRevealContainCoordinate(reveal, {
+          latitude: place.latitude,
+          longitude: place.longitude,
+        }),
+      ) ||
+      (!!userLocation &&
+        getDistanceBetweenCoordinatesMeters(userLocation, {
+          latitude: place.latitude,
+          longitude: place.longitude,
+        }) <= NEARBY_PLACE_VISIBILITY_RADIUS_METERS),
     );
     const approximateGroupIndices = new Map<string, number>();
     const approximateGroupSizes = new Map<string, number>();
@@ -594,11 +586,11 @@ export function MapScreen({
       selectedApproximateDisplayCoordinate,
     };
   }, [
-    displayGridZoom,
     places,
-    revealedDisplayCellIds,
     selectedPlace?.id,
     showPlaceMarkers,
+    userLocation,
+    visibleTerritoryReveals,
     viewportState,
     visitedPlaceIds,
   ]);
@@ -639,16 +631,38 @@ export function MapScreen({
   ]);
 
   const fogOverlayShape = React.useMemo(() => {
-    if (!viewportState) {
-      return EMPTY_FOG_FEATURE_COLLECTION;
+    return createFogOverlay({
+      reveals: visibleTerritoryReveals,
+      viewportBounds: viewportState?.bounds,
+    });
+  }, [viewportState?.bounds, visibleTerritoryReveals]);
+
+  const fogRevealEdgeShape = React.useMemo(() => {
+    if (!currentLiveTerritoryReveal) {
+      return EMPTY_REVEAL_EDGE_FEATURE_COLLECTION;
     }
 
-    return createFogOverlay({
-      displayGridZoom,
-      revealedCellIds: revealedDisplayCellIds,
-      viewportBounds: viewportState.bounds,
-    });
-  }, [displayGridZoom, revealedDisplayCellIds, viewportState]);
+    const ring = createRevealCircleRing(currentLiveTerritoryReveal);
+
+    return {
+      features: [
+        {
+          geometry: {
+            coordinates: ring,
+            type: 'LineString' as const,
+          },
+          id: 'reveal-edge:live',
+          properties: {},
+          type: 'Feature' as const,
+        },
+      ],
+      type: 'FeatureCollection' as const,
+    };
+  }, [currentLiveTerritoryReveal]);
+
+  React.useEffect(() => {
+    lastExplorationWriteRef.current = null;
+  }, [territoryResetVersion]);
 
   const moveCamera = React.useCallback(
     (centerCoordinate: [number, number], zoomLevel = BELARUS_ZOOM_LEVEL) => {
@@ -717,10 +731,16 @@ export function MapScreen({
         return;
       }
 
+      const nextReveal = createExplorationRevealFromLocation({
+        forwardOffsetMeters: TERRITORY_REVEAL_FORWARD_OFFSET_METERS,
+        location: coordinate,
+        radiusMeters: currentVisibilityRadiusMeters,
+      });
+
       const lastExplorationWrite = lastExplorationWriteRef.current;
 
       if (lastExplorationWrite) {
-        const movementMeters = getDistanceBetweenCoordinatesMeters(lastExplorationWrite, coordinate);
+        const movementMeters = getDistanceBetweenCoordinatesMeters(lastExplorationWrite, nextReveal);
         const elapsedMs = coordinate.capturedAtMs - lastExplorationWrite.capturedAtMs;
 
         if (
@@ -733,13 +753,13 @@ export function MapScreen({
 
       lastExplorationWriteRef.current = {
         capturedAtMs: coordinate.capturedAtMs,
-        latitude: coordinate.latitude,
-        longitude: coordinate.longitude,
+        latitude: nextReveal.latitude,
+        longitude: nextReveal.longitude,
       };
 
       dispatch(
         persistExplorationForLocation({
-          center: coordinate,
+          location: coordinate,
           radiusMeters: currentVisibilityRadiusMeters,
         }),
       );
@@ -893,9 +913,18 @@ export function MapScreen({
             onUpdate={handleUserLocationUpdate}
             visible
           />
-          <ShapeSource id="fog-of-war" shape={fogOverlayShape}>
+          <ShapeSource
+            id="fog-of-war"
+            key={`fog-of-war:${territoryResetVersion}:${currentLiveTerritoryReveal ? 'live' : 'init'}`}
+            shape={fogOverlayShape}
+          >
             <FillLayer id="fog-fill" style={fogFillStyle as never} />
           </ShapeSource>
+          {fogRevealEdgeShape.features.length > 0 ? (
+            <ShapeSource id="fog-reveal-edge" shape={fogRevealEdgeShape}>
+              <LineLayer id="fog-reveal-edge-line" style={fogRevealEdgeStyle as never} />
+            </ShapeSource>
+          ) : null}
           {approximateSelectionHaloShape.features.length > 0 ? (
             <ShapeSource id="approximate-selection-halo" shape={approximateSelectionHaloShape}>
               <FillLayer id="approximate-selection-halo-fill" style={approximateHaloFillStyle as never} />
@@ -994,7 +1023,7 @@ export function MapScreen({
         {nearbyPlacesCount !== null ? (
           <View className="mt-3 self-start rounded-2xl bg-slate-950/90 px-4 py-3">
             <Text className="text-xs font-medium uppercase tracking-[0.8px] text-slate-300">
-              Within 5 km
+              {formatNearbyRadiusLabel(NEARBY_PLACE_VISIBILITY_RADIUS_METERS)}
             </Text>
             <Text className="mt-1 text-base font-semibold text-white">
               {nearbyPlacesCount} place{nearbyPlacesCount === 1 ? '' : 's'}
@@ -1118,6 +1147,13 @@ const styles = StyleSheet.create({
 const fogFillStyle = {
   fillColor: '#020617',
   fillOpacity: 0.84,
+};
+
+const fogRevealEdgeStyle = {
+  lineBlur: 1,
+  lineColor: '#38bdf8',
+  lineOpacity: 0.35,
+  lineWidth: 2,
 };
 
 const clusterCircleStyle = {

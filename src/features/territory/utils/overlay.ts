@@ -1,10 +1,5 @@
-import type { MapViewportBounds, TerritoryCellId } from '../types';
-import {
-  getTerritoryCellBounds,
-  getTerritoryCellForCoordinate,
-  getTerritoryCellId,
-  getTerritoryCellsForViewport,
-} from './grid';
+import type { ExploredTerritoryReveal, MapViewportBounds } from '../types';
+import { createRevealCircleRing, doesRevealIntersectViewport } from './reveals';
 
 type GeoJsonPolygonFeature = {
   geometry: {
@@ -23,48 +18,205 @@ export type GeoJsonPolygonFeatureCollection = {
   type: 'FeatureCollection';
 };
 
-function getRectanglePolygon(params: {
-  gridZoom: number;
-  maxX: number;
-  maxY: number;
-  minX: number;
-  minY: number;
-}) {
-  const northWestBounds = getTerritoryCellBounds({
-    gridZoom: params.gridZoom,
-    x: params.minX,
-    y: params.minY,
-  });
-  const southEastBounds = getTerritoryCellBounds({
-    gridZoom: params.gridZoom,
-    x: params.maxX,
-    y: params.maxY,
-  });
+const METERS_PER_DEGREE_LAT = 111_320;
 
-  return [
-    [
-      [northWestBounds.west, northWestBounds.north],
-      [southEastBounds.east, northWestBounds.north],
-      [southEastBounds.east, southEastBounds.south],
-      [northWestBounds.west, southEastBounds.south],
-      [northWestBounds.west, northWestBounds.north],
-    ],
-  ];
+const WORLD_FOG_RING: [number, number][] = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
+];
+
+function approximateDistanceBetweenRevealsMeters(
+  a: Pick<ExploredTerritoryReveal, 'latitude' | 'longitude'>,
+  b: Pick<ExploredTerritoryReveal, 'latitude' | 'longitude'>,
+): number {
+  const dLat = (a.latitude - b.latitude) * METERS_PER_DEGREE_LAT;
+  const avgLatRadians = (((a.latitude + b.latitude) / 2) * Math.PI) / 180;
+  const dLng =
+    (a.longitude - b.longitude) * METERS_PER_DEGREE_LAT * Math.cos(avgLatRadians);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
 }
 
-function createRectangleFeature(params: {
-  gridZoom: number;
-  maxX: number;
-  maxY: number;
-  minX: number;
-  minY: number;
-}) {
+function cross(
+  o: [number, number],
+  a: [number, number],
+  b: [number, number],
+): number {
+  return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+}
+
+/**
+ * Andrew's monotone chain convex hull. Returns points in CCW order (positive
+ * signed area in [lng, lat] space). Callers that need CW order should
+ * `.reverse()` the result.
+ */
+function convexHull(points: [number, number][]): [number, number][] {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  if (sorted.length <= 2) {
+    return sorted;
+  }
+
+  const lower: [number, number][] = [];
+
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+
+  const upper: [number, number][] = [];
+
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+
+  lower.pop();
+  upper.pop();
+
+  return [...lower, ...upper];
+}
+
+/**
+ * Groups reveals into connected components where circles overlap.
+ * Two reveals are connected when the distance between their centers
+ * is less than the sum of their radii.
+ */
+function findOverlappingGroups(
+  reveals: ExploredTerritoryReveal[],
+): ExploredTerritoryReveal[][] {
+  const visited = new Set<number>();
+  const groups: ExploredTerritoryReveal[][] = [];
+
+  for (let i = 0; i < reveals.length; i += 1) {
+    if (visited.has(i)) {
+      continue;
+    }
+
+    const groupIndices: number[] = [];
+    const queue = [i];
+    visited.add(i);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      groupIndices.push(current);
+
+      for (let j = 0; j < reveals.length; j += 1) {
+        if (visited.has(j)) {
+          continue;
+        }
+
+        const distance = approximateDistanceBetweenRevealsMeters(
+          reveals[current],
+          reveals[j],
+        );
+
+        if (distance < reveals[current].radiusMeters + reveals[j].radiusMeters) {
+          visited.add(j);
+          queue.push(j);
+        }
+      }
+    }
+
+    groups.push(groupIndices.map(idx => reveals[idx]));
+  }
+
+  return groups;
+}
+
+/**
+ * Earcut (MapLibre's polygon triangulation library) produces invalid geometry
+ * when polygon holes overlap. This function builds non-overlapping hole rings:
+ *
+ * - Isolated circles that don't overlap anything → normal circle ring.
+ * - Connected groups of overlapping circles → convex hull of all their
+ *   boundary points, which is a single non-self-intersecting ring that fully
+ *   covers the union of those circles.
+ *
+ * All returned rings are CW (negative signed area), the winding MapLibre
+ * expects for polygon holes.
+ */
+function buildNonOverlappingHoleRings(
+  reveals: ExploredTerritoryReveal[],
+): [number, number][][] {
+  if (reveals.length === 0) {
+    return [];
+  }
+
+  if (reveals.length === 1) {
+    return [createRevealCircleRing(reveals[0])];
+  }
+
+  const groups = findOverlappingGroups(reveals);
+  const holes: [number, number][][] = [];
+
+  for (const group of groups) {
+    if (group.length === 1) {
+      holes.push(createRevealCircleRing(group[0]));
+      continue;
+    }
+
+    const allBoundaryPoints: [number, number][] = [];
+
+    for (const reveal of group) {
+      allBoundaryPoints.push(...createRevealCircleRing(reveal));
+    }
+
+    const hull = convexHull(allBoundaryPoints);
+
+    if (hull.length < 3) {
+      for (const reveal of group) {
+        holes.push(createRevealCircleRing(reveal));
+      }
+      continue;
+    }
+
+    // convexHull returns CCW; reverse to CW so classifyRings treats it as hole
+    hull.reverse();
+    // close the ring
+    hull.push([hull[0][0], hull[0][1]]);
+    holes.push(hull);
+  }
+
+  return holes;
+}
+
+function expandViewportBounds(viewportBounds: MapViewportBounds): MapViewportBounds {
+  const longitudePadding = Math.max(
+    0.25,
+    Math.abs(viewportBounds.northEast[0] - viewportBounds.southWest[0]) * 0.5,
+  );
+  const latitudePadding = Math.max(
+    0.25,
+    Math.abs(viewportBounds.northEast[1] - viewportBounds.southWest[1]) * 0.5,
+  );
+
+  return {
+    northEast: [
+      Math.min(180, viewportBounds.northEast[0] + longitudePadding),
+      Math.min(85, viewportBounds.northEast[1] + latitudePadding),
+    ],
+    southWest: [
+      Math.max(-180, viewportBounds.southWest[0] - longitudePadding),
+      Math.max(-85, viewportBounds.southWest[1] - latitudePadding),
+    ],
+  };
+}
+
+function createFogFeature(holeRings: [number, number][][]) {
   return {
     geometry: {
-      coordinates: getRectanglePolygon(params),
+      coordinates: [WORLD_FOG_RING, ...holeRings],
       type: 'Polygon' as const,
     },
-    id: `fog:${params.gridZoom}:${params.minX}:${params.minY}:${params.maxX}:${params.maxY}`,
+    id: 'fog:viewport',
     properties: {
       kind: 'fog' as const,
     },
@@ -72,114 +224,20 @@ function createRectangleFeature(params: {
   };
 }
 
-function createHiddenCellMatrix(params: {
-  gridZoom: number;
-  revealedCellIds: Set<TerritoryCellId>;
-  viewportBounds: MapViewportBounds;
-}) {
-  const northWestCell = getTerritoryCellForCoordinate(
-    params.viewportBounds.southWest[0],
-    params.viewportBounds.northEast[1],
-    params.gridZoom,
-  );
-  const southEastCell = getTerritoryCellForCoordinate(
-    params.viewportBounds.northEast[0],
-    params.viewportBounds.southWest[1],
-    params.gridZoom,
-  );
-  const minX = Math.min(northWestCell.x, southEastCell.x);
-  const maxX = Math.max(northWestCell.x, southEastCell.x);
-  const minY = Math.min(northWestCell.y, southEastCell.y);
-  const maxY = Math.max(northWestCell.y, southEastCell.y);
-  const viewportCells = getTerritoryCellsForViewport(params.viewportBounds, params.gridZoom);
-  const hiddenByKey = new Set<string>();
-
-  viewportCells.forEach(cell => {
-    const cellId = getTerritoryCellId(cell);
-
-    if (!params.revealedCellIds.has(cellId)) {
-      hiddenByKey.add(`${cell.x}:${cell.y}`);
-    }
-  });
-
-  return {
-    hiddenByKey,
-    maxX,
-    maxY,
-    minX,
-    minY,
-  };
-}
-
 export function createFogOverlay(params: {
-  displayGridZoom: number;
-  revealedCellIds: Set<TerritoryCellId>;
-  viewportBounds: MapViewportBounds;
+  reveals: ExploredTerritoryReveal[];
+  viewportBounds?: MapViewportBounds;
 }): GeoJsonPolygonFeatureCollection {
-  const { hiddenByKey, maxX, maxY, minX, minY } = createHiddenCellMatrix({
-    gridZoom: params.displayGridZoom,
-    revealedCellIds: params.revealedCellIds,
-    viewportBounds: params.viewportBounds,
-  });
-  const visited = new Set<string>();
-  const features: GeoJsonPolygonFeature[] = [];
-
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      const startKey = `${x}:${y}`;
-
-      if (!hiddenByKey.has(startKey) || visited.has(startKey)) {
-        continue;
-      }
-
-      let endX = x;
-
-      while (
-        endX + 1 <= maxX &&
-        hiddenByKey.has(`${endX + 1}:${y}`) &&
-        !visited.has(`${endX + 1}:${y}`)
-      ) {
-        endX += 1;
-      }
-
-      let endY = y;
-      let canGrow = true;
-
-      while (canGrow && endY + 1 <= maxY) {
-        for (let candidateX = x; candidateX <= endX; candidateX += 1) {
-          const candidateKey = `${candidateX}:${endY + 1}`;
-
-          if (!hiddenByKey.has(candidateKey) || visited.has(candidateKey)) {
-            canGrow = false;
-            break;
-          }
-        }
-
-        if (canGrow) {
-          endY += 1;
-        }
-      }
-
-      for (let visitedY = y; visitedY <= endY; visitedY += 1) {
-        for (let visitedX = x; visitedX <= endX; visitedX += 1) {
-          visited.add(`${visitedX}:${visitedY}`);
-        }
-      }
-
-      features.push(
-        createRectangleFeature({
-          gridZoom: params.displayGridZoom,
-          maxX: endX,
-          maxY: endY,
-          minX: x,
-          minY: y,
-        }),
-      );
-    }
-  }
+  const revealBounds = params.viewportBounds
+    ? expandViewportBounds(params.viewportBounds)
+    : null;
+  const relevantReveals = revealBounds
+    ? params.reveals.filter(reveal => doesRevealIntersectViewport(reveal, revealBounds))
+    : params.reveals;
+  const holeRings = buildNonOverlappingHoleRings(relevantReveals);
 
   return {
-    features,
+    features: [createFogFeature(holeRings)],
     type: 'FeatureCollection',
   };
 }

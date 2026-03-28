@@ -4,15 +4,16 @@ import {
   type PayloadAction,
 } from '@reduxjs/toolkit';
 
-import type { ExploredTerritoryCell } from '../types';
+import type { ExploredTerritoryReveal } from '../types';
 
-const territoryAdapter = createEntityAdapter<ExploredTerritoryCell, string>({
-  selectId: cell => cell.cellId,
+const territoryAdapter = createEntityAdapter<ExploredTerritoryReveal, string>({
+  selectId: reveal => reveal.revealId,
 });
 
 function createInitialState() {
   return territoryAdapter.getInitialState({
     error: null as string | null,
+    resetVersion: 0,
     status: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
   });
 }
@@ -26,9 +27,10 @@ export const territorySlice = createSlice({
     territoryCleared(state) {
       territoryAdapter.removeAll(state);
       state.error = null;
+      state.resetVersion += 1;
       state.status = 'idle';
     },
-    territoryCellsUpserted(state, action: PayloadAction<ExploredTerritoryCell[]>) {
+    territoryRevealsUpserted(state, action: PayloadAction<ExploredTerritoryReveal[]>) {
       territoryAdapter.upsertMany(state, action.payload);
       state.error = null;
       state.status = 'ready';
@@ -41,7 +43,7 @@ export const territorySlice = createSlice({
       state.error = null;
       state.status = 'loading';
     },
-    territoryReceived(state, action: PayloadAction<ExploredTerritoryCell[]>) {
+    territoryReceived(state, action: PayloadAction<ExploredTerritoryReveal[]>) {
       territoryAdapter.setAll(state, action.payload);
       state.error = null;
       state.status = 'ready';
