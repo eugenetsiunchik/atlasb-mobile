@@ -160,6 +160,10 @@ function formatNearbyRadiusLabel(radiusMeters: number) {
     : `Within ${radiusMeters} m`;
 }
 
+function formatViewportCoordinate(value: number) {
+  return value.toFixed(5);
+}
+
 function getCoordinateFromLocationEvent(location: unknown) {
   if (typeof location !== 'object' || location === null) {
     return null;
@@ -267,7 +271,7 @@ function getApproximateMarkerDisplayCoordinate(params: {
 }): [number, number] {
   const { baseCoordinate, baseRadiusMeters, index } = params;
 
-  if (index === 0) {
+  if (index === 0 || baseRadiusMeters <= 0) {
     return baseCoordinate;
   }
 
@@ -404,6 +408,19 @@ export function MapScreen({
       return distanceMeters <= NEARBY_PLACE_VISIBILITY_RADIUS_METERS ? count + 1 : count;
     }, 0);
   }, [places, userLocation]);
+  const viewportCenterCoordinate = React.useMemo(() => {
+    if (!viewportState) {
+      return null;
+    }
+
+    const [northEastLongitude, northEastLatitude] = viewportState.bounds.northEast;
+    const [southWestLongitude, southWestLatitude] = viewportState.bounds.southWest;
+
+    return {
+      latitude: (northEastLatitude + southWestLatitude) / 2,
+      longitude: (northEastLongitude + southWestLongitude) / 2,
+    };
+  }, [viewportState]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -934,7 +951,7 @@ export function MapScreen({
           {showPlaceMarkers ? (
             <ShapeSource
               cluster
-              clusterMaxZoomLevel={13}
+              clusterMaxZoomLevel={12}
               clusterRadius={44}
               id="places"
               onPress={handleShapeSourcePress}
@@ -1016,8 +1033,20 @@ export function MapScreen({
         pointerEvents="box-none"
       >
         <View className="self-start rounded-2xl bg-slate-950/90 px-4 py-3">
-          <Text className="text-lg font-semibold text-white">
-            Discover places in Belarus
+          <Text className="text-xs font-medium uppercase tracking-[0.8px] text-slate-300">
+            Dev map info
+          </Text>
+          <Text className="mt-1 text-base font-semibold text-white">
+            Zoom:{' '}
+            {typeof viewportState?.zoomLevel === 'number'
+              ? viewportState.zoomLevel.toFixed(2)
+              : '--'}
+          </Text>
+          <Text className="mt-1 text-sm text-slate-100">
+            Position:{' '}
+            {viewportCenterCoordinate
+              ? `${formatViewportCoordinate(viewportCenterCoordinate.latitude)}, ${formatViewportCoordinate(viewportCenterCoordinate.longitude)}`
+              : '--'}
           </Text>
         </View>
         {nearbyPlacesCount !== null ? (
